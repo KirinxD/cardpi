@@ -1,67 +1,158 @@
-import Image from "next/image";
+"use client";
+
+import Link from "next/link";
+import { useSession, signOut } from "next-auth/react";
 
 export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+  const { data: session, status } = useSession();
+
+  if (status === "loading") {
+    return (
+      <div className="flex flex-col flex-1 items-center justify-center">
+        <div className="text-digimon-green font-pixel text-lg animate-pulse">CARGANDO...</div>
+        <div className="mt-4 w-32 h-4 border-4 border-digimon-green relative overflow-hidden">
+          <div className="bg-digimon-green h-full w-1/3 animate-ping" />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col flex-1 min-h-screen">
+      <header className="border-b-4 border-crt-border px-6 py-4 flex items-center justify-between bg-crt-dark/90 backdrop-blur-sm sticky top-0 z-50">
+        <Link href="/" className="font-pixel text-xl text-digimon-green select-none">
+          DIGIMON TCG TRACKER
+        </Link>
+        <nav className="flex items-center gap-4">
+          {session ? (
+            <>
+              <Link href="/decks" className="font-pixel text-xs text-pixel-white hover:text-digimon-green transition-colors">
+                MAZOS
+              </Link>
+              <Link href="/tournaments" className="font-pixel text-xs text-pixel-white hover:text-digimon-green transition-colors">
+                TORNEOS
+              </Link>
+              <Link href="/standings" className="font-pixel text-xs text-pixel-white hover:text-digimon-green transition-colors">
+                CLASIFICACIÓN
+              </Link>
+              <Link href="/posts" className="font-pixel text-xs text-pixel-white hover:text-digimon-green transition-colors">
+                BLOG
+              </Link>
+              <span className="font-mono-pixel text-xs text-pixel-gray px-3 py-1 border-2 border-crt-border">
+                {session.user?.name}
+              </span>
+              <button
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="pixel-button-secondary text-xs"
+              >
+                SALIR
+              </button>
+            </>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Link href="/auth/signin" className="pixel-button text-xs">
+                ENTRAR
+              </Link>
+              <Link href="/auth/signup" className="pixel-button-secondary text-xs">
+                REGISTRO
+              </Link>
+            </div>
+          )}
+        </nav>
+      </header>
+
+      <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+        <div className="max-w-4xl w-full space-y-8">
+          <section className="text-center space-y-6">
+            <h1 className="font-pixel text-4xl md:text-6xl text-digimon-green tracking-wider drop-shadow-[4px_4px_0_#004411]">
+              DIGIMON TCG
+            </h1>
+            <h2 className="font-pixel text-xl md:text-2xl text-digimon-orange tracking-wider">
+              TOURNAMENT TRACKER
+            </h2>
+            <p className="font-mono-pixel text-lg text-pixel-white max-w-2xl mx-auto leading-relaxed">
+              Rastrea tus torneos, comparte mazos, compite con amigos y domina la clasificación anual.
+              <br />Estilo retro pixelado para verdaderos DigiDestined.
+            </p>
+          </section>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Link
+              href={session ? "/decks/new" : "/auth/signup"}
+              className="pixel-card group hover:border-digimon-green hover:shadow-[0_0_30px_rgba(0,184,74,0.4)] transition-all duration-200"
+            >
+              <div className="text-6xl mb-4">🃏</div>
+              <h3 className="font-pixel text-lg text-digimon-green mb-2">CONSTRUCTOR DE MAZOS</h3>
+              <p className="font-mono-pixel text-pixel-gray text-sm leading-relaxed">
+                Crea y comparte tus mazos. Busca cartas de la API oficial. Exporta en JSON para compartir.
+              </p>
+            </Link>
+
+            <Link
+              href={session ? "/tournaments/new" : "/auth/signup"}
+              className="pixel-card group hover:border-digimon-orange hover:shadow-[0_0_30px_rgba(255,107,0,0.4)] transition-all duration-200"
+            >
+              <div className="text-6xl mb-4">🏆</div>
+              <h3 className="font-pixel text-lg text-digimon-orange mb-2">TORNEOS MENSUALES</h3>
+              <p className="font-mono-pixel text-pixel-gray text-sm leading-relaxed">
+                Registra torneos, añade resultados, vincula mazos usados. Top automático por evento.
+              </p>
+            </Link>
+
+            <Link
+              href="/standings"
+              className="pixel-card group hover:border-digimon-yellow hover:shadow-[0_0_30px_rgba(255,204,0,0.4)] transition-all duration-200"
+            >
+              <div className="text-6xl mb-4">📊</div>
+              <h3 className="font-pixel text-lg text-digimon-yellow mb-2">CLASIFICACIÓN ANUAL</h3>
+              <p className="font-mono-pixel text-pixel-gray text-sm leading-relaxed">
+                Puntos por posición: 1º=10, 2º=7, 3º=5, 4º=3, participación=1. Tabla por temporada.
+              </p>
+            </Link>
+          </div>
+
+          <section className="pixel-card">
+            <h3 className="font-pixel text-xl text-digimon-green mb-6 text-center">📝 ZONA LIBRE - BLOG</h3>
+            <p className="font-mono-pixel text-pixel-white text-center mb-6 leading-relaxed">
+              Escribe sobre nuevas expansiones, haz predicciones, comparte estrategias o lo que quieras.
+              Markdown completo con estilo pixelado.
+            </p>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link href={session ? "/posts/new" : "/auth/signup"} className="pixel-button">
+                NUEVO POST
+              </Link>
+              <Link href="/posts" className="pixel-button-secondary">
+                LEER POSTS
+              </Link>
+            </div>
+          </section>
+
+          {!session && (
+            <section className="pixel-card text-center" style={{ borderColor: "#ff6b00" }}>
+              <h3 className="font-pixel text-xl text-digimon-orange mb-4">🔐 ÚNETE AL GRUPO</h3>
+              <p className="font-mono-pixel text-pixel-white mb-6 leading-relaxed">
+                Regístrate para crear mazos, registrar torneos y escribir en el blog.
+                Cada amigo tiene su cuenta, todo vinculado a su perfil.
+              </p>
+              <div className="flex flex-wrap justify-center gap-4">
+                <Link href="/auth/signup" className="pixel-button-secondary text-base px-8 py-4">
+                  CREAR CUENTA
+                </Link>
+                <Link href="/auth/signin" className="pixel-button text-base px-8 py-4">
+                  YA TENGO CUENTA
+                </Link>
+              </div>
+            </section>
+          )}
+
+          <footer className="text-center py-8">
+            <p className="font-pixel text-xs text-pixel-gray">
+              HECHO CON ❤️ PARA DIGIDESTINED | NEXT.JS + PRISMA + NEON
+            </p>
+            <p className="font-mono-pixel text-xs text-pixel-gray mt-2">
+              API DE CARTAS: DIGIMONCARD.IO | PWA INSTALABLE EN MÓVIL
+            </p>
+          </footer>
         </div>
       </main>
     </div>

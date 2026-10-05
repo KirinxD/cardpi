@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  name                 String
+  passwordHash         String
+  decks                Deck[]
+  tournamentResults    TournamentResult[]
+  posts                Post[]
+  tournamentParticipants TournamentParticipant[]
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model Deck {
+  id                    String   @id @default(cuid())
+  name                  String
+  format                String
+  cards                 Json
+  description           String?
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tournamentId          String?
+  tournament            Tournament?    @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+  tournamentResults     TournamentResult[]
+  tournamentParticipants TournamentParticipant[]
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Tournament {
+  id            String   @id @default(cuid())
+  name          String
+  date          DateTime
+  format        String
+  season        String
+  type          TournamentType @default(SWISS)
+  status        TournamentStatus @default(REGISTRATION)
+  results       TournamentResult[]
+  decks         Deck[]
+  participants  TournamentParticipant[]
+  matches       TournamentMatch[]
+  rounds        TournamentRound[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model TournamentParticipant {
+  id            String   @id @default(cuid())
+  tournamentId  String
+  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deckId        String?
+  deck          Deck?    @relation(fields: [deckId], references: [id], onDelete: SetNull)
+  seed          Int?
+  dropped       Boolean @default(false)
+  createdAt     DateTime @default(now())
+  player1Matches TournamentMatch[] @relation("Player1Matches")
+  player2Matches TournamentMatch[] @relation("Player2Matches")
+  winnerMatches  TournamentMatch[] @relation("WinnerMatches")
+
+  @@unique([tournamentId, userId])
+}
+
+model TournamentMatch {
+  id            String     @id @default(cuid())
+  tournamentId  String
+  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  roundId       String?
+  round         TournamentRound? @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  player1Id     String?
+  player1       TournamentParticipant? @relation("Player1Matches", fields: [player1Id], references: [id], onDelete: SetNull)
+  player2Id     String?
+  player2       TournamentParticipant? @relation("Player2Matches", fields: [player2Id], references: [id], onDelete: SetNull)
+  winnerId      String?
+  winner        TournamentParticipant? @relation("WinnerMatches", fields: [winnerId], references: [id], onDelete: SetNull)
+  player1Score  Int @default(0)
+  player2Score  Int @default(0)
+  status        MatchStatus @default(PENDING)
+  tableNumber   Int?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model TournamentRound {
+  id            String   @id @default(cuid())
+  tournamentId  String
+  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  number        Int
+  name          String?
+  status        RoundStatus @default(PENDING)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  matches       TournamentMatch[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tournamentId, number])
+}
+
+model TournamentResult {
+  id            String     @id @default(cuid())
+  placement     Int
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tournamentId  String
+  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  deckId        String?
+  deck          Deck?      @relation(fields: [deckId], references: [id], onDelete: SetNull)
+  createdAt     DateTime   @default(now())
+
+  @@unique([tournamentId, userId])
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  type      PostType
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Card {
+  id           String   @id @default(cuid())
+  cardId       String   @unique
+  name         String
+  setCode      String?
+  setName      String?
+  color        String?
+  type         String?
+  level        String?
+  cost         Int?
+  dp           Int?
+  effect       String?
+  sourceEffect String?
+  imageUrl     String?
+  rawData      Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum PostType {
+  EXPANSION
+  PREDICTION
+  GENERAL
+}
+
+enum TournamentType {
+  SWISS
+  SINGLE_ELIMINATION
+  DOUBLE_ELIMINATION
+}
+
+enum TournamentStatus {
+  REGISTRATION
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MatchStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  DRAW
+  BYE
+}
+
+enum RoundStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
