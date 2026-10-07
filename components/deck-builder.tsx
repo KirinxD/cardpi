@@ -259,8 +259,8 @@ export default function DeckBuilder({ deck }: { deck?: DeckBuilderDeck }) {
             height={88}
             sizes={compact ? "40px" : "48px"}
             className={`${
-              compact ? "w-10 h-10" : "w-12 h-12"
-            } object-cover pixelated rounded border-2 border-crt-border flex-shrink-0`}
+              compact ? "w-10" : "w-12"
+            } h-auto rounded border-2 border-crt-border flex-shrink-0`}
           />
         )}
         <div className="flex-1 min-w-0">
@@ -434,7 +434,7 @@ export default function DeckBuilder({ deck }: { deck?: DeckBuilderDeck }) {
                           width={63}
                           height={88}
                           sizes="64px"
-                          className="w-16 h-16 object-cover pixelated rounded border-2 border-crt-border flex-shrink-0"
+                          className="w-16 h-auto rounded border-2 border-crt-border flex-shrink-0"
                         />
                       )}
                       <div className="flex-1 min-w-0">
@@ -579,7 +579,7 @@ export default function DeckBuilder({ deck }: { deck?: DeckBuilderDeck }) {
       {showCardModal && selectedCard && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div
-            className="pixel-card w-full max-w-md max-h-[80vh] overflow-y-auto"
+            className="pixel-card w-full max-w-sm max-h-[80vh] overflow-y-auto"
             style={{ borderColor: "#ff6b00" }}
           >
             <div className="flex items-center justify-between mb-4">
@@ -599,9 +599,10 @@ export default function DeckBuilder({ deck }: { deck?: DeckBuilderDeck }) {
                 alt={selectedCard.name}
                 width={630}
                 height={880}
-                sizes="(max-width: 768px) 100vw, 448px"
+                sizes="(max-width: 768px) 100vw, 384px"
                 priority
-                className="w-full h-auto pixelated rounded border-4 border-crt-border mb-4"
+                quality={90}
+                className="w-full h-auto rounded border-4 border-crt-border mb-4"
               />
             )}
             <div className="space-y-2 text-sm font-mono-pixel">

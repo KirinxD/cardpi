@@ -18,9 +18,9 @@ const pressStart = Press_Start_2P({
 });
 export const metadata: Metadata = {
   title: "DTP-LOSPI",
-  description: "Track your Digimon card tournaments, decks, and standings with friends",
+  description:
+    "Track your Digimon card tournaments, decks, and standings with friends",
   manifest: "/manifest.json",
-  icons: { apple: "/icons/icon-192.png" },
   appleWebApp: {
     capable: true,
     title: "DTP-LOSPI",
@@ -41,7 +41,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${vt323.variable} ${pressStart.variable} h-full`}>
+    <html
+      lang="es"
+      className={`${vt323.variable} ${pressStart.variable} h-full`}
+    >
       <body className="min-h-full flex flex-col crt-scanlines">
         <Providers>{children}</Providers>
       </body>

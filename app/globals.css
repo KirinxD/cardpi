@@ -49,11 +49,6 @@
 }
 
 /* Custom utility classes as regular CSS */
-.pixelated {
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-}
-
 .pixel-border {
   border: 4px solid;
   border-image: linear-gradient(45deg, #00b84a, #008f3a) 4;
