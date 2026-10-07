@@ -54,9 +54,9 @@ const svg = `
     <circle cx="332" cy="370" r="14"/>
   </g>
   
-  <!-- DIGIMON text -->
-  <text x="256" y="440" font-family="monospace" font-size="32" font-weight="bold" fill="url(#digimonGrad)" text-anchor="middle" letter-spacing="4">DIGIMON</text>
-  <text x="256" y="470" font-family="monospace" font-size="16" fill="#00b84a" text-anchor="middle">TCG TRACKER</text>
+  <!-- DTP-LOSPI text -->
+  <text x="256" y="440" font-family="monospace" font-size="32" font-weight="bold" fill="url(#digimonGrad)" text-anchor="middle" letter-spacing="4">DTP-LOSPI</text>
+  <text x="256" y="470" font-family="monospace" font-size="16" fill="#00b84a" text-anchor="middle">TRACKER</text>
 </svg>
 `;
 

@@ -1,4 +1,3 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -17,8 +16,6 @@ const TYPE_COLORS = {
 };
 
 export default async function PostsPage() {
-  const session = await auth();
-
   const posts = await prisma.post.findMany({
     include: {
       author: { select: { name: true, id: true } },

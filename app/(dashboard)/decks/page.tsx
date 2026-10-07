@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { getDeckComposition, normalizeDeckCards } from "@/lib/deck-schema";
 
 export default async function DecksPage() {
   const session = await auth();
@@ -21,14 +22,13 @@ export default async function DecksPage() {
     orderBy: { updatedAt: "desc" },
   });
 
-  const formatDeckCards = (cards: unknown) => {
-    if (!Array.isArray(cards)) return 0;
-    return cards.reduce((sum, card: unknown) => {
-      if (typeof card === "object" && card !== null && "quantity" in card) {
-        return sum + (Number((card as { quantity: number }).quantity) || 0);
-      }
-      return sum;
-    }, 0);
+  const describeCards = (cards: unknown) => {
+    const { mainCount, level2Count } = getDeckComposition(
+      normalizeDeckCards(cards),
+    );
+    const parts = [`${mainCount} cartas`];
+    if (level2Count > 0) parts.push(`${level2Count} nivel 2`);
+    return parts.join(" + ");
   };
 
   return (
@@ -70,7 +70,7 @@ export default async function DecksPage() {
                     {deck.name}
                   </h3>
                   <p className="font-mono-pixel text-xs text-pixel-gray mt-1">
-                    {deck.format} • {formatDeckCards(deck.cards)} cartas
+                    {describeCards(deck.cards)}
                   </p>
                 </div>
                 {deck.tournament && (

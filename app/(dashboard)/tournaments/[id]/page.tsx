@@ -37,7 +37,6 @@ export default async function TournamentDetailPage({
     notFound();
   }
 
-  const isOwner = session?.user?.id === tournament.results[0]?.userId; // Not exactly, but we'll use auth for admin actions
   const canManage = !!session?.user?.id;
 
   return (
@@ -53,7 +52,6 @@ export default async function TournamentDetailPage({
           <h1 className="font-pixel text-3xl text-digimon-orange">{tournament.name}</h1>
           <div className="flex flex-wrap gap-4 mt-2 text-sm font-mono-pixel text-pixel-gray">
             <span>📅 {format(new Date(tournament.date), "dd 'de' MMMM 'de' yyyy", { locale: es })}</span>
-            <span>🎮 {tournament.format}</span>
             <span>🏷️ {tournament.season}</span>
           </div>
         </div>
@@ -91,7 +89,7 @@ export default async function TournamentDetailPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {tournament.results.map((result, index) => (
+                  {tournament.results.map((result) => (
                     <tr key={result.id}>
                       <td className="font-pixel text-digimon-yellow text-center">
                         {result.placement}º

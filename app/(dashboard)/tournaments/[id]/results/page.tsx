@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { use, useCallback, useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -33,12 +32,18 @@ interface TournamentResult {
   deck: Deck | null;
 }
 
+interface LoadedData {
+  users: User[];
+  decks: Deck[];
+  results: TournamentResult[];
+}
+
 export default function TournamentResultsPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const router = useRouter();
+  const { id: tournamentId } = use(params);
   const [users, setUsers] = useState<User[]>([]);
   const [decks, setDecks] = useState<Deck[]>([]);
   const [results, setResults] = useState<TournamentResult[]>([]);
@@ -52,6 +57,7 @@ export default function TournamentResultsPage({
     handleSubmit,
     reset,
     setValue,
+    control,
     formState: { errors },
   } = useForm<ResultForm>({
     resolver: zodResolver(resultSchema),
@@ -62,35 +68,53 @@ export default function TournamentResultsPage({
     },
   });
 
-  const watchedUserId = useWatch({ control: useForm().control, name: "userId" });
+  const watchedUserId = useWatch({ control, name: "userId" });
 
-  const [tournamentId, setTournamentId] = useState("");
+  const loadData = useCallback(async (): Promise<LoadedData> => {
+    const [usersRes, decksRes, resultsRes] = await Promise.all([
+      fetch("/api/users"),
+      fetch(`/api/decks?userId=all`),
+      fetch(`/api/tournaments/${tournamentId}/results`),
+    ]);
+    return {
+      users: (await usersRes.json()) as User[],
+      decks: (await decksRes.json()) as Deck[],
+      results: (await resultsRes.json()) as TournamentResult[],
+    };
+  }, [tournamentId]);
 
-  useEffect(() => {
-    params.then((p) => setTournamentId(p.id));
-  }, [params]);
+  const applyData = useCallback((data: LoadedData) => {
+    setUsers(data.users);
+    setDecks(data.decks);
+    setResults(data.results);
+  }, []);
 
-  const fetchData = async () => {
-    if (!tournamentId) return;
+  const fetchData = useCallback(async () => {
     try {
-      const [usersRes, decksRes, resultsRes] = await Promise.all([
-        fetch("/api/users"),
-        fetch(`/api/decks?userId=all`),
-        fetch(`/api/tournaments/${tournamentId}/results`),
-      ]);
-      setUsers(await usersRes.json());
-      setDecks(await decksRes.json());
-      setResults(await resultsRes.json());
+      applyData(await loadData());
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [loadData, applyData]);
 
   useEffect(() => {
-    fetchData();
-  }, [tournamentId]);
+    let active = true;
+
+    loadData()
+      .then((data) => {
+        if (active) applyData(data);
+      })
+      .catch((error) => console.error("Error fetching data:", error))
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [loadData, applyData]);
 
   const userDecks = (userId: string) => decks.filter((d) => d.userId === userId);
 
@@ -167,7 +191,7 @@ export default function TournamentResultsPage({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="font-pixel text-xs text-digimon-orange block mb-2">JUGADOR</label>
-                  <select {...register("userId")} className="pixel-input" onChange={(e) => setValue("deckId", "")}>
+                  <select {...register("userId")} className="pixel-input" onChange={() => setValue("deckId", "")}>
                     <option value="">Seleccionar...</option>
                     {users.map((u) => (
                       <option key={u.id} value={u.id}>{u.name}</option>
@@ -208,7 +232,7 @@ export default function TournamentResultsPage({
               <p className="font-mono-pixel text-pixel-gray text-center py-8">No hay resultados</p>
             ) : (
               <div className="space-y-2">
-                {results
+                {[...results]
                   .sort((a, b) => a.placement - b.placement)
                   .map((result) => (
                     <div

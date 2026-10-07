@@ -1,125 +1,144 @@
-const DIGIMON_API_BASE = "https://digimoncard.io/api-public";
+/**
+ * Cliente de la API pública de digimoncard.io (versión actual).
+ *
+ * Docs: https://digimoncard.io/api-documentation
+ * - Endpoint de búsqueda: GET https://digimoncard.io/api-public/search
+ * - Devuelve un ARRAY con los campos en snake_case (id, play_cost, main_effect...).
+ * - Rate limit: 15 peticiones / 10 segundos.
+ * - La API no devuelve URLs de imagen: se construyen aquí con cardImageUrl().
+ */
 
+const DIGIMON_IMAGE_BASE = "https://images.digimoncard.io/images/cards";
+
+/** Tarjeta tal y como la devuelve /search (más card_image_url, añadida por nuestro proxy). */
 export interface DigimonCard {
-  card_id: string;
+  id: string;
   name: string;
-  card_number: string;
-  set_name: string;
-  set_code: string;
-  color: string;
-  rarity: string;
   type: string;
-  level: string;
-  cost: number;
-  dp: number;
-  effect: string;
+  level: number | null;
+  play_cost: number | null;
+  evolution_cost: number | null;
+  evolution_color: string | null;
+  evolution_level: number | null;
+  xros_req: string;
+  color: string;
+  color2: string | null;
+  digi_type: string | null;
+  digi_type2: string | null;
+  digi_type3: string | null;
+  digi_type4: string | null;
+  digi_type5: string | null;
+  form: string | null;
+  dp: number | null;
+  attribute: string | null;
+  rarity: string;
+  stage: string | null;
+  artist: string | null;
+  main_effect: string;
   source_effect: string;
-  security_effect: string;
-  image_url: string;
+  alt_effect: string;
+  series: string;
+  pretty_url: string;
+  date_added: string;
+  set_name: string[];
+  /** Añadida por /api/cards/search: la API pública no expone imágenes. */
   card_image_url: string;
-  card_back_url: string;
   [key: string]: unknown;
 }
 
+/** Parámetros oficiales de GET /api-public/search. */
 export interface SearchParams {
-  name?: string;
+  /** Nombre de carta (admite `e:termino` para excluir). */
+  n?: string;
+  /** Efecto (descripción) de la carta. */
+  desc?: string;
+  /** Número de carta, acepta varios separados por comas (ej: "BT4-016,BT1-010"). */
+  card?: string;
   color?: string;
   type?: string;
-  level?: string;
-  cost?: number;
-  set_code?: string;
+  digitype?: string;
+  level?: number;
+  playcost?: number;
+  evocost?: number;
+  /** Nombre del pack (ej: "BT-04: Booster Great Legend" o "BT-04"). */
+  pack?: string;
   series?: string;
-  keyword?: string;
-  page?: number;
+  sort?: "name" | "power" | "code" | "color" | "level" | "playcost" | "type" | "new";
+  sortdirection?: "asc" | "desc";
+  /** Máximo 1000. */
   limit?: number;
 }
 
-function buildSearchUrl(params: SearchParams): string {
-  const searchParams = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== "") {
-      searchParams.append(key, String(value));
-    }
-  });
-  return `${DIGIMON_API_BASE}/search.php?${searchParams.toString()}`;
+/**
+ * URL de la imagen de una carta.
+ * Patrón verificado: https://images.digimoncard.io/images/cards/{id}.webp
+ */
+export function cardImageUrl(cardId: string): string {
+  return `${DIGIMON_IMAGE_BASE}/${encodeURIComponent(cardId)}.webp`;
 }
 
+function buildQuery(params: SearchParams): URLSearchParams {
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === "") continue;
+    query.append(key, String(value));
+  }
+
+  query.set("limit", String(Math.min(Math.max(Number(query.get("limit")) || 20, 1), 1000)));
+  return query;
+}
+
+/**
+ * Busca cartas contra /api/cards/search (nuestro proxy, que cachea la respuesta
+ * y normaliza los resultados añadiendo card_image_url).
+ */
 export async function searchCards(params: SearchParams): Promise<DigimonCard[]> {
   try {
-    const url = buildSearchUrl(params);
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "DigimonTCGTracker/1.0",
-      },
-      next: { revalidate: 3600 }, // Cache for 1 hour
-    });
+    const query = buildQuery(params);
+    const response = await fetch(`/api/cards/search?${query.toString()}`);
 
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
     }
 
     const data = await response.json();
-    return data.cards || [];
+    return Array.isArray(data) ? data : data.cards || [];
   } catch (error) {
     console.error("Error searching cards:", error);
     return [];
   }
 }
 
+/** Busca por número de carta exacto (ej: "BT4-016"). */
 export async function getCardById(cardId: string): Promise<DigimonCard | null> {
   try {
-    const cards = await searchCards({ name: cardId, limit: 1 });
-    return cards.find((c) => c.card_id.toLowerCase() === cardId.toLowerCase()) || null;
+    const cards = await searchCards({ card: cardId, limit: 5 });
+    const wanted = cardId.trim().toLowerCase();
+    return cards.find((c) => c.id.toLowerCase() === wanted) || cards[0] || null;
   } catch (error) {
     console.error("Error fetching card:", error);
     return null;
   }
 }
 
-export async function getCardsBySet(setCode: string): Promise<DigimonCard[]> {
-  return searchCards({ set_code: setCode, limit: 100 });
-}
-
-export async function getAllSets(): Promise<string[]> {
-  try {
-    const response = await fetch(`${DIGIMON_API_BASE}/set.php`, {
-      next: { revalidate: 86400 },
-    });
-    if (!response.ok) return [];
-    const data = await response.json();
-    return data.sets?.map((s: { set_code: string }) => s.set_code) || [];
-  } catch {
-    return [];
-  }
-}
-
+/** Formatea una tarjeta al modelo que guardamos en la base de datos (model Card). */
 export function formatCardForDeck(card: DigimonCard) {
+  const [firstSet] = card.set_name ?? [];
+
   return {
-    cardId: card.card_id,
+    cardId: card.id,
     name: card.name,
-    setCode: card.set_code,
-    setName: card.set_name,
+    // "BT4-016" -> "BT4"
+    setCode: card.id.includes("-") ? card.id.slice(0, card.id.indexOf("-")) : card.id,
+    setName: firstSet,
     color: card.color,
     type: card.type,
-    level: card.level,
-    cost: card.cost,
-    dp: card.dp,
-    effect: card.effect,
+    level: card.level != null ? `Level ${card.level}` : undefined,
+    cost: card.play_cost ?? undefined,
+    dp: card.dp ?? undefined,
+    effect: card.main_effect,
     sourceEffect: card.source_effect,
-    imageUrl: card.card_image_url,
+    imageUrl: card.card_image_url || cardImageUrl(card.id),
   };
 }
-
-export const DIGIMON_COLORS = [
-  "Red", "Blue", "Yellow", "Green", "Black", "Purple", "White",
-] as const;
-
-export const DIGIMON_TYPES = [
-  "Digimon", "Tamer", "Option", "Digi-Egg",
-] as const;
-
-export const DIGIMON_LEVELS = [
-  "Level 2", "Level 3", "Level 4", "Level 5", "Level 6", "Level 7",
-  "Rookie", "Champion", "Ultimate", "Mega", "Armor",
-  "In-Training", "Fresh",
-] as const;

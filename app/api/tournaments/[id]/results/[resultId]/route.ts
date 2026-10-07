@@ -21,7 +21,7 @@ export async function PATCH(
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const { id, resultId } = await params;
+  const { resultId } = await params;
 
   try {
     const body = await req.json();

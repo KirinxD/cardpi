@@ -3,9 +3,11 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { redirect } from "next/navigation";
 
 export default async function TournamentsPage() {
   const session = await auth();
+  if (!session?.user) redirect("/auth/signin");
 
   const tournaments = await prisma.tournament.findMany({
     include: {
@@ -53,7 +55,6 @@ export default async function TournamentsPage() {
                 </h3>
                 <div className="flex flex-wrap gap-4 mt-2 text-sm font-mono-pixel text-pixel-gray">
                   <span>📅 {format(new Date(tournament.date), "dd 'de' MMMM 'de' yyyy", { locale: es })}</span>
-                  <span>🎮 {tournament.format}</span>
                   <span>🏷️ {tournament.season}</span>
                 </div>
               </div>

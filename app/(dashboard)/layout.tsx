@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
+import SignOutButton from "@/components/sign-out-button";
 
 const navigation = [
   { href: "/decks", label: "MAZOS", icon: "🃏" },
@@ -21,7 +22,7 @@ export default async function DashboardLayout({
       <header className="border-b-4 border-crt-border px-6 py-4 flex items-center justify-between bg-crt-dark/95 backdrop-blur-sm sticky top-0 z-50">
         <Link href="/" className="font-pixel text-xl text-digimon-green select-none flex items-center gap-2">
           <span>🐉</span>
-          DIGIMON TCG
+          DTP-LOSPI
         </Link>
         <nav className="flex items-center gap-2">
           {navigation.map((item) => (
@@ -38,12 +39,7 @@ export default async function DashboardLayout({
             <span className="font-mono-pixel text-xs text-pixel-gray hidden sm:block">
               {session?.user?.name}
             </span>
-            <Link
-              href="/decks/new"
-              className="pixel-button text-xs hidden sm:inline-flex"
-            >
-              + NUEVO
-            </Link>
+            <SignOutButton />
           </div>
         </nav>
       </header>
@@ -54,9 +50,7 @@ export default async function DashboardLayout({
 
       <footer className="border-t-2 border-crt-border px-6 py-4 bg-crt-dark/50">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="font-pixel text-xs text-pixel-gray">
-            DIGIMON TCG TOURNAMENT TRACKER v1.0
-          </p>
+          <p className="font-pixel text-xs text-pixel-gray">DTP-LOSPI v1.0</p>
           <p className="font-mono-pixel text-xs text-pixel-gray">
             API: DIGIMONCARD.IO | PWA READY
           </p>

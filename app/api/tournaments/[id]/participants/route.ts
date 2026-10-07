@@ -22,7 +22,7 @@ export async function GET(
     where: { tournamentId: id },
     include: {
       user: { select: { id: true, name: true } },
-      deck: { select: { id: true, name: true, format: true } },
+      deck: { select: { id: true, name: true } },
     },
     orderBy: { seed: "asc" },
   });
@@ -80,7 +80,7 @@ export async function POST(
       },
       include: {
         user: { select: { id: true, name: true } },
-        deck: { select: { id: true, name: true, format: true } },
+        deck: { select: { id: true, name: true } },
       },
     });
 

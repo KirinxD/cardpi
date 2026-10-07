@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 interface User {
@@ -11,7 +11,6 @@ interface User {
 interface Deck {
   id: string;
   name: string;
-  format: string;
   userId: string;
 }
 
@@ -44,6 +43,13 @@ interface Round {
   matches: Match[];
 }
 
+interface LoadedData {
+  participants: Participant[];
+  rounds: Round[];
+  users: User[];
+  decks: Deck[];
+}
+
 export default function TournamentBracketPage({
   params,
 }: {
@@ -58,35 +64,56 @@ export default function TournamentBracketPage({
   const [showAddModal, setShowAddModal] = useState(false);
   const [newParticipant, setNewParticipant] = useState({ userId: "", deckId: "" });
 
-  const [tournamentId, setTournamentId] = useState("");
+  const { id: tournamentId } = use(params);
 
-  useEffect(() => {
-    params.then((p) => setTournamentId(p.id));
-  }, [params]);
+  const loadData = useCallback(async (): Promise<LoadedData> => {
+    const [participantsRes, roundsRes, usersRes, decksRes] = await Promise.all([
+      fetch(`/api/tournaments/${tournamentId}/participants`),
+      fetch(`/api/tournaments/${tournamentId}/rounds`),
+      fetch("/api/users"),
+      fetch(`/api/decks?userId=all`),
+    ]);
+    return {
+      participants: (await participantsRes.json()) as Participant[],
+      rounds: (await roundsRes.json()) as Round[],
+      users: (await usersRes.json()) as User[],
+      decks: (await decksRes.json()) as Deck[],
+    };
+  }, [tournamentId]);
 
-  const fetchData = async () => {
-    if (!tournamentId) return;
+  const applyData = useCallback((data: LoadedData) => {
+    setParticipants(data.participants);
+    setRounds(data.rounds);
+    setUsers(data.users);
+    setDecks(data.decks);
+  }, []);
+
+  const fetchData = useCallback(async () => {
     try {
-      const [participantsRes, roundsRes, usersRes, decksRes] = await Promise.all([
-        fetch(`/api/tournaments/${tournamentId}/participants`),
-        fetch(`/api/tournaments/${tournamentId}/rounds`),
-        fetch("/api/users"),
-        fetch(`/api/decks?userId=all`),
-      ]);
-      setParticipants(await participantsRes.json());
-      setRounds(await roundsRes.json());
-      setUsers(await usersRes.json());
-      setDecks(await decksRes.json());
+      applyData(await loadData());
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [loadData, applyData]);
 
   useEffect(() => {
-    fetchData();
-  }, [tournamentId]);
+    let active = true;
+
+    loadData()
+      .then((data) => {
+        if (active) applyData(data);
+      })
+      .catch((error) => console.error("Error fetching data:", error))
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [loadData, applyData]);
 
   const addParticipant = async () => {
     try {
@@ -315,7 +342,7 @@ export default function TournamentBracketPage({
                       <td className="font-pixel text-sm text-digimon-yellow py-2">{p.seed}</td>
                       <td className="font-pixel text-sm text-digimon-green py-2">{p.user.name}</td>
                       <td className="font-mono-pixel text-xs text-pixel-white py-2">
-                        {p.deck ? `${p.deck.name} (${p.deck.format})` : "Sin mazo asignado"}
+                        {p.deck ? p.deck.name : "Sin mazo asignado"}
                       </td>
                       <td className="py-2">
                         {p.dropped ? (
@@ -366,7 +393,7 @@ export default function TournamentBracketPage({
                     >
                       <option value="">Sin mazo</option>
                       {decks.filter(d => d.userId === newParticipant.userId).map(d => (
-                        <option key={d.id} value={d.id}>{d.name} (${d.format})</option>
+                        <option key={d.id} value={d.id}>{d.name}</option>
                       ))}
                     </select>
                   </div>

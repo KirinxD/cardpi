@@ -1,6 +1,6 @@
 {
-  "name": "Digimon TCG Tournament Tracker",
-  "short_name": "Digimon TCG",
+  "name": "DTP-LOSPI",
+  "short_name": "DTP-LOSPI",
   "description": "Track your Digimon card tournaments, decks, and standings with friends",
   "start_url": "/",
   "display": "standalone",

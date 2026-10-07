@@ -23,7 +23,6 @@ model User {
 model Deck {
   id                    String   @id @default(cuid())
   name                  String
-  format                String
   cards                 Json
   description           String?
   userId                String
@@ -40,7 +39,6 @@ model Tournament {
   id            String   @id @default(cuid())
   name          String
   date          DateTime
-  format        String
   season        String
   type          TournamentType @default(SWISS)
   status        TournamentStatus @default(REGISTRATION)

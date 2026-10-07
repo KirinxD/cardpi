@@ -22,7 +22,7 @@ export async function PATCH(
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const { id, participantId } = await params;
+  const { participantId } = await params;
 
   try {
     const body = await req.json();
@@ -33,7 +33,7 @@ export async function PATCH(
       data,
       include: {
         user: { select: { id: true, name: true } },
-        deck: { select: { id: true, name: true, format: true } },
+        deck: { select: { id: true, name: true } },
       },
     });
 

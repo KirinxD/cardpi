@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
-import withPWA from "next-pwa";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   images: {
+    // AVIF primero (mejor compresión), WebP como fallback
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       {
         protocol: "https",
@@ -18,10 +19,4 @@ const nextConfig: NextConfig = {
   turbopack: {},
 };
 
-export default withPWA({
-  dest: "public",
-  register: true,
-  skipWaiting: true,
-  disable: process.env.NODE_ENV === "development",
-  buildExcludes: [/middleware-manifest.json$/],
-})(nextConfig);
+export default nextConfig;

@@ -9,13 +9,10 @@ import { z } from "zod";
 const tournamentSchema = z.object({
   name: z.string().min(2, "Mínimo 2 caracteres").max(80),
   date: z.string().min(1, "Selecciona una fecha"),
-  format: z.string().min(1, "Selecciona un formato"),
   season: z.string().min(1, "Temporada requerida"),
 });
 
 type TournamentForm = z.infer<typeof tournamentSchema>;
-
-const FORMATS = ["Standard", "Classic", "Unlimited", "Custom"];
 
 export default function NewTournamentPage() {
   const router = useRouter();
@@ -30,7 +27,6 @@ export default function NewTournamentPage() {
     defaultValues: {
       name: "",
       date: new Date().toISOString().split("T")[0],
-      format: "Standard",
       season: new Date().getFullYear().toString(),
     },
   });
@@ -77,27 +73,16 @@ export default function NewTournamentPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="font-pixel text-xs text-digimon-orange block mb-2">FECHA</label>
-            <input
-              {...register("date")}
-              type="date"
-              className="pixel-input"
-            />
-            {errors.date && (
-              <p className="font-mono-pixel text-xs text-digimon-orange mt-1">{errors.date.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="font-pixel text-xs text-digimon-orange block mb-2">FORMATO</label>
-            <select {...register("format")} className="pixel-input">
-              {FORMATS.map((f) => (
-                <option key={f} value={f}>{f}</option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <label className="font-pixel text-xs text-digimon-orange block mb-2">FECHA</label>
+          <input
+            {...register("date")}
+            type="date"
+            className="pixel-input"
+          />
+          {errors.date && (
+            <p className="font-mono-pixel text-xs text-digimon-orange mt-1">{errors.date.message}</p>
+          )}
         </div>
 
         <div>

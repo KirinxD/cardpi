@@ -6,7 +6,6 @@ import { z } from "zod";
 const tournamentSchema = z.object({
   name: z.string().min(2).max(80),
   date: z.string().min(1),
-  format: z.string().min(1),
   season: z.string().min(1),
 });
 
@@ -28,7 +27,6 @@ export async function POST(req: Request) {
       data: {
         name: data.name,
         date: new Date(data.date),
-        format: data.format,
         season: data.season,
       },
     });

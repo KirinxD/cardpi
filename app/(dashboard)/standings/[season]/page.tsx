@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -13,6 +13,7 @@ export default async function StandingsPage({
   params: Promise<{ season: string }>;
 }) {
   const session = await auth();
+  if (!session?.user) redirect("/auth/signin");
   const { season } = await params;
 
   // Get all tournaments for this season
@@ -190,7 +191,7 @@ export default async function StandingsPage({
               <div className="flex-1">
                 <p className="font-pixel text-sm text-digimon-orange">{t.name}</p>
                 <p className="font-mono-pixel text-xs text-pixel-gray">
-                  {format(new Date(t.date), "dd MMM yyyy", { locale: es })} • {t.format}
+                  {format(new Date(t.date), "dd MMM yyyy", { locale: es })}
                 </p>
               </div>
               <span className="font-pixel text-sm text-digimon-yellow">

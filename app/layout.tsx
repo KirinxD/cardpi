@@ -16,10 +16,16 @@ const pressStart = Press_Start_2P({
   display: "swap",
   weight: "400",
 });
-
 export const metadata: Metadata = {
-  title: "Digimon Card Tournament Tracker",
+  title: "DTP-LOSPI",
   description: "Track your Digimon card tournaments, decks, and standings with friends",
+  manifest: "/manifest.json",
+  icons: { apple: "/icons/icon-192.png" },
+  appleWebApp: {
+    capable: true,
+    title: "DTP-LOSPI",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {
@@ -36,14 +42,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className={`${vt323.variable} ${pressStart.variable} h-full`}>
-      <head>
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#00b84a" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Digimon TCG" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-      </head>
       <body className="min-h-full flex flex-col crt-scanlines">
         <Providers>{children}</Providers>
       </body>

@@ -1,30 +1,8 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { deckSchema, getZodErrorMessage, validateDeckComposition } from "@/lib/deck-schema";
 import { z } from "zod";
-
-const deckSchema = z.object({
-  name: z.string().min(2).max(60),
-  format: z.string().min(1),
-  description: z.string().max(500).optional(),
-  cards: z.array(z.object({
-    cardId: z.string(),
-    name: z.string(),
-    quantity: z.number().min(1).max(4),
-    isSideboard: z.boolean().default(false),
-    setCode: z.string().optional(),
-    color: z.string().optional(),
-    type: z.string().optional(),
-    level: z.string().optional(),
-    cost: z.number().optional(),
-    dp: z.number().optional(),
-    imageUrl: z.string().optional(),
-  })).min(1),
-});
-
-function getZodErrorMessage(error: z.ZodError): string {
-  return error.issues[0]?.message || "Error de validación";
-}
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -36,10 +14,14 @@ export async function POST(req: Request) {
     const body = await req.json();
     const data = deckSchema.parse(body);
 
+    const composition = validateDeckComposition(data.cards);
+    if (!composition.valid) {
+      return NextResponse.json({ error: composition.error }, { status: 400 });
+    }
+
     const deck = await prisma.deck.create({
       data: {
         name: data.name,
-        format: data.format,
         description: data.description,
         cards: data.cards,
         userId: session.user.id,

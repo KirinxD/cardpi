@@ -21,7 +21,7 @@ export default function Home() {
     <div className="flex flex-col flex-1 min-h-screen">
       <header className="border-b-4 border-crt-border px-6 py-4 flex items-center justify-between bg-crt-dark/90 backdrop-blur-sm sticky top-0 z-50">
         <Link href="/" className="font-pixel text-xl text-digimon-green select-none">
-          DIGIMON TCG TRACKER
+          DTP-LOSPI
         </Link>
         <nav className="flex items-center gap-4">
           {session ? (
@@ -65,11 +65,8 @@ export default function Home() {
         <div className="max-w-4xl w-full space-y-8">
           <section className="text-center space-y-6">
             <h1 className="font-pixel text-4xl md:text-6xl text-digimon-green tracking-wider drop-shadow-[4px_4px_0_#004411]">
-              DIGIMON TCG
+              DTP-LOSPI
             </h1>
-            <h2 className="font-pixel text-xl md:text-2xl text-digimon-orange tracking-wider">
-              TOURNAMENT TRACKER
-            </h2>
             <p className="font-mono-pixel text-lg text-pixel-white max-w-2xl mx-auto leading-relaxed">
               Rastrea tus torneos, comparte mazos, compite con amigos y domina la clasificación anual.
               <br />Estilo retro pixelado para verdaderos DigiDestined.
