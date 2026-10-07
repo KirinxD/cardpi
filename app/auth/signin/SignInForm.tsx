@@ -4,12 +4,14 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { authErrorMessage } from "@/lib/auth-errors";
 
 export function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
   const error = searchParams.get("error");
+  const errorCode = searchParams.get("code");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,7 +32,7 @@ export function SignInForm() {
     setIsLoading(false);
 
     if (result?.error) {
-      setFormError(result.error);
+      setFormError(authErrorMessage(result.error, result.code));
     } else {
       router.push(callbackUrl);
       router.refresh();
@@ -49,7 +51,7 @@ export function SignInForm() {
       {error && (
         <div className="pixel-card mb-6 text-center" style={{ borderColor: "#ff6b00" }}>
           <p className="font-mono-pixel text-digimon-orange">
-            {error === "CredentialsSignin" ? "Credenciales inválidas" : error}
+            {authErrorMessage(error, errorCode)}
           </p>
         </div>
       )}
@@ -90,6 +92,7 @@ export function SignInForm() {
             className="pixel-input"
             placeholder="••••••••"
             required
+            minLength={6}
             autoComplete="current-password"
             disabled={isLoading}
           />

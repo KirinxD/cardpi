@@ -4,6 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { authErrorMessage } from "@/lib/auth-errors";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -46,7 +47,7 @@ export default function SignUpPage() {
     setIsLoading(false);
 
     if (result?.error) {
-      setFormError(result.error);
+      setFormError(authErrorMessage(result.error, result.code));
     } else {
       router.push("/");
       router.refresh();

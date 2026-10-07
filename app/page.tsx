@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
+import { isAdmin } from "@/lib/roles";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -55,6 +56,15 @@ export default function Home() {
               >
                 BLOG
               </Link>
+              {isAdmin(session) && (
+                <Link
+                  href="/admin"
+                  className="pixel-button-secondary text-xs"
+                  data-testid="landing-admin-panel"
+                >
+                  PANEL
+                </Link>
+              )}
               <span className="font-mono-pixel text-xs text-pixel-gray px-3 py-1 border-2 border-crt-border">
                 {session.user?.name}
               </span>
