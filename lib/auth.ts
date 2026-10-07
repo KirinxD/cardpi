@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import type { User } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
@@ -53,7 +54,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             data: { email, name, passwordHash },
           });
 
-          return { id: user.id, email: user.email, name: user.name };
+          return { id: user.id, email: user.email, name: user.name, role: user.role } as User;
         }
 
         const validated = signInSchema.safeParse({ email, password });
@@ -71,7 +72,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           throw new Error("Contraseña incorrecta");
         }
 
-        return { id: user.id, email: user.email, name: user.name };
+        return { id: user.id, email: user.email, name: user.name, role: user.role } as User;
       },
     }),
   ],

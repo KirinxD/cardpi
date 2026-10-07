@@ -5,6 +5,8 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { isAdmin } from "@/lib/roles";
 
 const resultSchema = z.object({
   userId: z.string().min(1, "Selecciona un jugador"),
@@ -44,6 +46,11 @@ export default function TournamentResultsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: tournamentId } = use(params);
+
+  // La página es de solo lectura para visitantes; la gestión es de admin.
+  const { data: session } = useSession();
+  const canManage = isAdmin(session);
+
   const [users, setUsers] = useState<User[]>([]);
   const [decks, setDecks] = useState<Deck[]>([]);
   const [results, setResults] = useState<TournamentResult[]>([]);
@@ -175,7 +182,9 @@ export default function TournamentResultsPage({
         </span>
       </Link>
 
-      <h1 className="font-pixel text-3xl text-digimon-orange">GESTIONAR RESULTADOS</h1>
+      <h1 className="font-pixel text-3xl text-digimon-orange">
+        {canManage ? "GESTIONAR RESULTADOS" : "RESULTADOS"}
+      </h1>
 
       {isLoading ? (
         <div className="pixel-card text-center py-12" style={{ borderColor: "#cc5400" }}>
@@ -183,48 +192,50 @@ export default function TournamentResultsPage({
         </div>
       ) : (
         <>
-          <div className="pixel-card space-y-4" style={{ borderColor: "#cc5400" }}>
-            <h2 className="font-pixel text-lg text-digimon-orange border-b-2 border-crt-border pb-2">
-              AÑADIR RESULTADO
-            </h2>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="font-pixel text-xs text-digimon-orange block mb-2">JUGADOR</label>
-                  <select {...register("userId")} className="pixel-input" onChange={() => setValue("deckId", "")}>
-                    <option value="">Seleccionar...</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
-                  </select>
-                  {errors.userId && <p className="font-mono-pixel text-xs text-digimon-orange mt-1">{errors.userId.message}</p>}
+          {canManage && (
+            <div className="pixel-card space-y-4" style={{ borderColor: "#cc5400" }}>
+              <h2 className="font-pixel text-lg text-digimon-orange border-b-2 border-crt-border pb-2">
+                AÑADIR RESULTADO
+              </h2>
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="font-pixel text-xs text-digimon-orange block mb-2">JUGADOR</label>
+                    <select {...register("userId")} className="pixel-input" onChange={() => setValue("deckId", "")}>
+                      <option value="">Seleccionar...</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
+                    </select>
+                    {errors.userId && <p className="font-mono-pixel text-xs text-digimon-orange mt-1">{errors.userId.message}</p>}
+                  </div>
+                  <div>
+                    <label className="font-pixel text-xs text-digimon-orange block mb-2">POSICIÓN</label>
+                    <input
+                      {...register("placement", { valueAsNumber: true })}
+                      type="number"
+                      min="1"
+                      max="20"
+                      className="pixel-input"
+                    />
+                    {errors.placement && <p className="font-mono-pixel text-xs text-digimon-orange mt-1">{errors.placement.message}</p>}
+                  </div>
+                  <div>
+                    <label className="font-pixel text-xs text-digimon-orange block mb-2">MAZO (OPCIONAL)</label>
+                    <select {...register("deckId")} className="pixel-input">
+                      <option value="">Sin mazo</option>
+                      {userDecks(watchedUserId).map((d) => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="font-pixel text-xs text-digimon-orange block mb-2">POSICIÓN</label>
-                  <input
-                    {...register("placement", { valueAsNumber: true })}
-                    type="number"
-                    min="1"
-                    max="20"
-                    className="pixel-input"
-                  />
-                  {errors.placement && <p className="font-mono-pixel text-xs text-digimon-orange mt-1">{errors.placement.message}</p>}
-                </div>
-                <div>
-                  <label className="font-pixel text-xs text-digimon-orange block mb-2">MAZO (OPCIONAL)</label>
-                  <select {...register("deckId")} className="pixel-input">
-                    <option value="">Sin mazo</option>
-                    {userDecks(watchedUserId).map((d) => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <button type="submit" className="pixel-button-secondary w-full" disabled={isSubmitting}>
-                {isSubmitting ? "GUARDANDO..." : "AÑADIR RESULTADO"}
-              </button>
-            </form>
-          </div>
+                <button type="submit" className="pixel-button-secondary w-full" disabled={isSubmitting}>
+                  {isSubmitting ? "GUARDANDO..." : "AÑADIR RESULTADO"}
+                </button>
+              </form>
+            </div>
+          )}
 
           <div className="pixel-card" style={{ borderColor: "#008f3a" }}>
             <h2 className="font-pixel text-lg text-digimon-green mb-4">CLASIFICACIÓN ACTUAL</h2>
@@ -253,47 +264,49 @@ export default function TournamentResultsPage({
                           )}
                         </div>
                       </div>
-                      {editingId === result.id ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            min="1"
-                            max="20"
-                            value={editPlacement}
-                            onChange={(e) => setEditPlacement(Number(e.target.value))}
-                            className="pixel-input w-20 text-center"
-                          />
-                          <button
-                            onClick={() => updatePlacement(result.id, editPlacement)}
-                            className="pixel-button text-xs"
-                          >
-                            OK
-                          </button>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="pixel-button-secondary text-xs"
-                          >
-                            CANCELAR
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setEditPlacement(result.placement);
-                              setEditingId(result.id);
-                            }}
-                            className="pixel-button text-xs"
-                          >
-                            EDITAR POS
-                          </button>
-                          <button
-                            onClick={() => deleteResult(result.id)}
-                            className="pixel-button-secondary text-xs"
-                          >
-                            ELIMINAR
-                          </button>
-                        </div>
+                      {canManage && (
+                        editingId === result.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              max="20"
+                              value={editPlacement}
+                              onChange={(e) => setEditPlacement(Number(e.target.value))}
+                              className="pixel-input w-20 text-center"
+                            />
+                            <button
+                              onClick={() => updatePlacement(result.id, editPlacement)}
+                              className="pixel-button text-xs"
+                            >
+                              OK
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="pixel-button-secondary text-xs"
+                            >
+                              CANCELAR
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setEditPlacement(result.placement);
+                                setEditingId(result.id);
+                              }}
+                              className="pixel-button text-xs"
+                            >
+                              EDITAR POS
+                            </button>
+                            <button
+                              onClick={() => deleteResult(result.id)}
+                              className="pixel-button-secondary text-xs"
+                            >
+                              ELIMINAR
+                            </button>
+                          </div>
+                        )
                       )}
                     </div>
                   ))}

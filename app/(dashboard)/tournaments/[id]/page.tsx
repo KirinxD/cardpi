@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { isAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -37,7 +38,7 @@ export default async function TournamentDetailPage({
     notFound();
   }
 
-  const canManage = !!session?.user?.id;
+  const canManage = isAdmin(session);
 
   return (
     <div className="space-y-6">
@@ -55,19 +56,21 @@ export default async function TournamentDetailPage({
             <span>🏷️ {tournament.season}</span>
           </div>
         </div>
-        {canManage && (
-          <div className="flex flex-wrap gap-3">
-            <Link href={`/tournaments/${tournament.id}/bracket`} className="pixel-button">
-              🏆 BRACKET / ELIMINATORIAS
-            </Link>
-            <Link href={`/tournaments/${tournament.id}/results`} className="pixel-button-secondary">
-              GESTIONAR RESULTADOS
-            </Link>
-            <Link href={`/tournaments/${tournament.id}/decks`} className="pixel-button">
-              VINCULAR MAZOS
-            </Link>
-          </div>
-        )}
+        <div className="flex flex-wrap gap-3">
+          <Link href={`/tournaments/${tournament.id}/bracket`} className="pixel-button">
+            🏆 BRACKET / ELIMINATORIAS
+          </Link>
+          {canManage && (
+            <>
+              <Link href={`/tournaments/${tournament.id}/results`} className="pixel-button-secondary">
+                GESTIONAR RESULTADOS
+              </Link>
+              <Link href={`/tournaments/new`} className="pixel-button-secondary">
+                NUEVO TORNEO
+              </Link>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

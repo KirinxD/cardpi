@@ -7,11 +7,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
   id                   String    @id @default(cuid())
   email                String    @unique
   name                 String
   passwordHash         String
+  role                 Role      @default(USER)
   decks                Deck[]
   tournamentResults    TournamentResult[]
   posts                Post[]

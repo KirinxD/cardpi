@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { adminOnly } from "@/lib/api-guards";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -17,9 +18,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; resultId: string }> }
 ) {
   const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+  const denied = adminOnly(session);
+  if (denied) return denied;
 
   const { resultId } = await params;
 
@@ -51,9 +51,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; resultId: string }> }
 ) {
   const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+  const denied = adminOnly(session);
+  if (denied) return denied;
 
   const { resultId } = await params;
 

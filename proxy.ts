@@ -11,10 +11,22 @@ const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
-  const isOnAuth = req.nextUrl.pathname.startsWith("/auth");
-  const isProtected = ["/decks", "/tournaments", "/standings", "/posts/new"].some(
-    (path) => req.nextUrl.pathname.startsWith(path)
-  );
+  const path = req.nextUrl.pathname;
+  const isOnAuth = path.startsWith("/auth");
+
+  // Zonas privadas: la lista y la creación de mazos, la edición de un mazo,
+  // los posts nuevos y el panel de administración.
+  //
+  // Quedan PÚBLICOS (sin login):
+  //  - /tournaments, /standings y sus detalles
+  //  - la ficha de cada mazo (/decks/<id>) para ver los mazos de los jugadores
+  const isProtected =
+    path === "/decks" ||
+    path === "/decks/new" ||
+    (path.startsWith("/decks/") && path.endsWith("/edit")) ||
+    path === "/tournaments/new" ||
+    path.startsWith("/posts/new") ||
+    path.startsWith("/admin");
 
   if (isOnAuth && isLoggedIn) {
     return NextResponse.redirect(new URL("/", req.nextUrl));
@@ -22,7 +34,7 @@ export default auth((req) => {
 
   if (isProtected && !isLoggedIn) {
     return NextResponse.redirect(
-      new URL(`/auth/signin?callbackUrl=${req.nextUrl.pathname}`, req.nextUrl)
+      new URL(`/auth/signin?callbackUrl=${path}`, req.nextUrl)
     );
   }
 

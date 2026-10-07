@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { isAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -34,7 +35,8 @@ export default async function DeckDetailPage({
     notFound();
   }
 
-  const isOwner = session?.user?.id === deck.userId;
+  const isOwner =
+    session?.user?.id === deck.userId || isAdmin(session);
   const cards = normalizeDeckCards(deck.cards);
   const { mainCards, level2Cards, mainCount, level2Count } =
     getDeckComposition(cards);

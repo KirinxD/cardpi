@@ -34,9 +34,18 @@ export interface DeckBuilderDeck {
  *  - Los Digi-Egg (nivel 2) van aparte: hasta 5.
  *  - No existe sideboard ni formato.
  */
-export default function DeckBuilder({ deck }: { deck?: DeckBuilderDeck }) {
+export default function DeckBuilder({
+  deck,
+  users,
+}: {
+  deck?: DeckBuilderDeck;
+  /** Solo admin: usuarios entre los que elegir el dueño de un mazo nuevo. */
+  users?: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Usuario destino al crear ("" = yo mismo). Solo el admin ve el selector.
+  const [targetUserId, setTargetUserId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<DigimonCard[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -220,12 +229,13 @@ export default function DeckBuilder({ deck }: { deck?: DeckBuilderDeck }) {
     if (!level2Ok || !mainOk) return;
     setIsSubmitting(true);
     try {
+      const payload = !deck && targetUserId ? { ...data, targetUserId } : data;
       const response = await fetch(
         deck ? `/api/decks/${deck.id}` : "/api/decks",
         {
           method: deck ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
+          body: JSON.stringify(payload),
         },
       );
       if (response.ok) {
@@ -361,6 +371,25 @@ export default function DeckBuilder({ deck }: { deck?: DeckBuilderDeck }) {
                     placeholder="Estrategia, tech choices, matchups..."
                   />
                 </div>
+                {!deck && users && (
+                  <div>
+                    <label className="font-pixel text-xs text-digimon-green block mb-2">
+                      USUARIO DESTINO (ADMIN)
+                    </label>
+                    <select
+                      value={targetUserId}
+                      onChange={(e) => setTargetUserId(e.target.value)}
+                      className="pixel-input"
+                    >
+                      <option value="">Yo mismo</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
 

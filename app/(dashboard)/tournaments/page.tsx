@@ -1,13 +1,13 @@
 import { auth } from "@/lib/auth";
+import { isAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { redirect } from "next/navigation";
 
 export default async function TournamentsPage() {
   const session = await auth();
-  if (!session?.user) redirect("/auth/signin");
+  const admin = isAdmin(session);
 
   const tournaments = await prisma.tournament.findMany({
     include: {
@@ -25,9 +25,11 @@ export default async function TournamentsPage() {
             {tournaments.length} torneo{tournaments.length !== 1 ? "s" : ""} registrado{tournaments.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <Link href="/tournaments/new" className="pixel-button-secondary">
-          + NUEVO TORNEO
-        </Link>
+        {admin && (
+          <Link href="/tournaments/new" className="pixel-button-secondary">
+            + NUEVO TORNEO
+          </Link>
+        )}
       </div>
 
       {tournaments.length === 0 ? (
@@ -35,11 +37,15 @@ export default async function TournamentsPage() {
           <div className="text-6xl mb-4">🏆</div>
           <h2 className="font-pixel text-xl text-digimon-orange mb-2">SIN TORNEOS AÚN</h2>
           <p className="font-mono-pixel text-pixel-gray mb-6 max-w-md mx-auto">
-            Crea el primer torneo para empezar a registrar resultados y mazos ganadores.
+            {admin
+              ? "Crea el primer torneo para empezar a registrar resultados y mazos ganadores."
+              : "Cuando se juegue un torneo aparecerá aquí con sus resultados y mazos."}
           </p>
-          <Link href="/tournaments/new" className="pixel-button-secondary inline-flex">
-            CREAR PRIMER TORNEO
-          </Link>
+          {admin && (
+            <Link href="/tournaments/new" className="pixel-button-secondary inline-flex">
+              CREAR PRIMER TORNEO
+            </Link>
+          )}
         </div>
       ) : (
         <div className="space-y-4">

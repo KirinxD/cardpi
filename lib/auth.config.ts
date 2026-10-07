@@ -23,12 +23,17 @@ export const authConfig = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        // Rol (USER/ADMIN) viaja del `authorize` al token y de ahí a la sesión.
+        token.role = (user as { role?: string }).role;
       }
       return token;
     },
     async session({ session, token }) {
       if (token.id) {
         session.user.id = token.id as string;
+      }
+      if (session.user && token.role) {
+        (session.user as { role?: unknown }).role = token.role;
       }
       return session;
     },

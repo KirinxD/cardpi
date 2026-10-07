@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { isAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -21,7 +22,8 @@ export default async function EditDeckPage({
   if (!deck) {
     notFound();
   }
-  if (deck.userId !== session.user.id) {
+  // Dueño o admin (los admins pueden editar mazos de cualquier usuario).
+  if (deck.userId !== session.user.id && !isAdmin(session)) {
     redirect("/decks");
   }
 

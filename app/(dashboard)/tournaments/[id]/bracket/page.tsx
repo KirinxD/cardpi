@@ -2,6 +2,8 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { isAdmin } from "@/lib/roles";
 
 interface User {
   id: string;
@@ -65,6 +67,10 @@ export default function TournamentBracketPage({
   const [newParticipant, setNewParticipant] = useState({ userId: "", deckId: "" });
 
   const { id: tournamentId } = use(params);
+
+  // La página es de solo lectura para visitantes; la gestión es de admin.
+  const { data: session } = useSession();
+  const canManage = isAdmin(session);
 
   const loadData = useCallback(async (): Promise<LoadedData> => {
     const [participantsRes, roundsRes, usersRes, decksRes] = await Promise.all([
@@ -313,9 +319,11 @@ export default function TournamentBracketPage({
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="font-pixel text-lg text-digimon-green">PARTICIPANTES ({participants.length})</h2>
-            <button onClick={() => setShowAddModal(true)} className="pixel-button-secondary text-xs">
-              + INSCRIBIR JUGADOR
-            </button>
+            {canManage && (
+              <button onClick={() => setShowAddModal(true)} className="pixel-button-secondary text-xs">
+                + INSCRIBIR JUGADOR
+              </button>
+            )}
           </div>
 
           <div className="pixel-card max-h-96 overflow-y-auto" style={{ borderColor: "#cc5400" }}>
@@ -326,13 +334,15 @@ export default function TournamentBracketPage({
                   <th className="font-pixel text-xs text-digimon-yellow pb-2 text-left">JUGADOR</th>
                   <th className="font-pixel text-xs text-digimon-yellow pb-2 text-left">MAZO</th>
                   <th className="font-pixel text-xs text-digimon-yellow pb-2 text-left w-24">ESTADO</th>
-                  <th className="font-pixel text-xs text-digimon-yellow pb-2 text-left w-24">ACCIONES</th>
+                  {canManage && (
+                    <th className="font-pixel text-xs text-digimon-yellow pb-2 text-left w-24">ACCIONES</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {participants.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="font-mono-pixel text-pixel-gray text-center py-8">
+                    <td colSpan={canManage ? 5 : 4} className="font-mono-pixel text-pixel-gray text-center py-8">
                       Sin participantes inscritos
                     </td>
                   </tr>
@@ -352,12 +362,14 @@ export default function TournamentBracketPage({
                         )}
                       </td>
                       <td className="py-2">
-                        <button
-                          onClick={() => removeParticipant(p.id)}
-                          className="pixel-button-secondary text-xs"
-                        >
-                          ELIMINAR
-                        </button>
+                        {canManage && (
+                          <button
+                            onClick={() => removeParticipant(p.id)}
+                            className="pixel-button-secondary text-xs"
+                          >
+                            ELIMINAR
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -413,9 +425,11 @@ export default function TournamentBracketPage({
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="font-pixel text-lg text-digimon-green">GESTIÓN DE RONDAS</h2>
-            <button onClick={() => generateRound(rounds.length + 1)} className="pixel-button text-xs">
-              + NUEVA RONDA
-            </button>
+            {canManage && (
+              <button onClick={() => generateRound(rounds.length + 1)} className="pixel-button text-xs">
+                + NUEVA RONDA
+              </button>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -437,23 +451,25 @@ export default function TournamentBracketPage({
                         {round.status}
                       </span>
                     </div>
-                    <div className="flex gap-2">
-                      {round.status === "PENDING" && (
-                        <>
-                          <button onClick={() => startRound(round.id)} className="pixel-button text-xs">
-                            INICIAR
+                    {canManage && (
+                      <div className="flex gap-2">
+                        {round.status === "PENDING" && (
+                          <>
+                            <button onClick={() => startRound(round.id)} className="pixel-button text-xs">
+                              INICIAR
+                            </button>
+                            <button onClick={() => generatePairings(round.id)} className="pixel-button-secondary text-xs">
+                              GENERAR PAREJAS
+                            </button>
+                          </>
+                        )}
+                        {round.status === "IN_PROGRESS" && (
+                          <button onClick={() => completeRound(round.id)} className="pixel-button text-xs">
+                            FINALIZAR RONDA
                           </button>
-                          <button onClick={() => generatePairings(round.id)} className="pixel-button-secondary text-xs">
-                            GENERAR PAREJAS
-                          </button>
-                        </>
-                      )}
-                      {round.status === "IN_PROGRESS" && (
-                        <button onClick={() => completeRound(round.id)} className="pixel-button text-xs">
-                          FINALIZAR RONDA
-                        </button>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -474,23 +490,33 @@ export default function TournamentBracketPage({
                                 <p className="font-mono-pixel text-xs text-pixel-gray">{match.player1?.deck?.name || "Sin mazo"}</p>
                               </div>
                               <div className="flex items-center gap-2">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="3"
-                                  value={match.player1Score}
-                                  onChange={(e) => updateMatchScore(match.id, Number(e.target.value), match.player2Score)}
-                                  className="pixel-input w-16 text-center font-pixel text-lg"
-                                />
-                                <span className="font-pixel text-lg text-digimon-yellow">-</span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="3"
-                                  value={match.player2Score}
-                                  onChange={(e) => updateMatchScore(match.id, match.player1Score, Number(e.target.value))}
-                                  className="pixel-input w-16 text-center font-pixel text-lg"
-                                />
+                                {canManage ? (
+                                  <>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="3"
+                                      value={match.player1Score}
+                                      onChange={(e) => updateMatchScore(match.id, Number(e.target.value), match.player2Score)}
+                                      className="pixel-input w-16 text-center font-pixel text-lg"
+                                    />
+                                    <span className="font-pixel text-lg text-digimon-yellow">-</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="3"
+                                      value={match.player2Score}
+                                      onChange={(e) => updateMatchScore(match.id, match.player1Score, Number(e.target.value))}
+                                      className="pixel-input w-16 text-center font-pixel text-lg"
+                                    />
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="font-pixel text-lg text-digimon-yellow w-16 text-center">{match.player1Score}</span>
+                                    <span className="font-pixel text-lg text-digimon-yellow">-</span>
+                                    <span className="font-pixel text-lg text-digimon-yellow w-16 text-center">{match.player2Score}</span>
+                                  </>
+                                )}
                               </div>
                               <div className="text-left min-w-[150px]">
                                 <p className={`font-pixel text-sm ${match.winner?.id === match.player2?.id ? "text-digimon-yellow" : "text-digimon-green"}`}>
