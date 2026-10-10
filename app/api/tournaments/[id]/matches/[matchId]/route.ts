@@ -48,7 +48,9 @@ export async function PATCH(
         const match = await prisma.tournamentMatch.findUnique({ where: { id: matchId } });
         if (match?.player2Id) updateData.winnerId = match.player2Id;
       } else {
+        // Empate: sin ganador.
         updateData.status = "DRAW";
+        updateData.winnerId = null;
       }
       if (!updateData.status) updateData.status = "COMPLETED";
       updateData.completedAt = new Date();

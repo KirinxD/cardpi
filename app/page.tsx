@@ -35,10 +35,10 @@ export default function Home() {
               {isAdmin(session) && (
                 <Link
                   href="/admin"
-                  className="pixel-button-secondary text-xs"
-                  data-testid="landing-admin-panel"
+                  className="flex items-center gap-1 px-4 py-2 font-pixel text-xs text-digimon-yellow hover:text-digimon-green hover:bg-crt-border/50 transition-all rounded-lg border-2 border-digimon-yellow/40 hover:border-crt-border"
                 >
-                  PANEL
+                  <span>🛠️</span>
+                  <span>PANEL</span>
                 </Link>
               )}
               <span className="font-mono-pixel text-xs text-pixel-gray px-3 py-1 border-2 border-crt-border">

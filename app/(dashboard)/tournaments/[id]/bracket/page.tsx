@@ -65,6 +65,9 @@ export default function TournamentBracketPage({
   const [activeTab, setActiveTab] = useState<"participants" | "bracket" | "rounds">("participants");
   const [showAddModal, setShowAddModal] = useState(false);
   const [newParticipant, setNewParticipant] = useState({ userId: "", deckId: "" });
+  // Marcadores en edición local: no se guardan hasta pulsar CONFIRMAR.
+  const [drafts, setDrafts] = useState<Record<string, { p1: string; p2: string }>>({});
+  const [savingMatchId, setSavingMatchId] = useState<string | null>(null);
 
   const { id: tournamentId } = use(params);
 
@@ -153,59 +156,105 @@ export default function TournamentBracketPage({
   };
 
   const generateRound = async (roundNumber: number) => {
+    // Si hay rondas sin finalizar, avisamos: los emparejamientos usarán la
+    // clasificación actual (aún incompleta).
+    if (
+      rounds.some((r) => r.status !== "COMPLETED") &&
+      !confirm(
+        "Hay rondas sin finalizar. Los emparejamientos usarán la clasificación actual. ¿Crear la ronda de todos modos?",
+      )
+    ) {
+      return;
+    }
     try {
+      // El servidor crea la ronda completa: empareja a todos los jugadores
+      // activos de una vez (bye si hay número impar) y la deja IN_PROGRESS.
       const res = await fetch(`/api/tournaments/${tournamentId}/rounds`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ number: roundNumber, name: `Ronda ${roundNumber}` }),
+        body: JSON.stringify({
+          number: roundNumber,
+          name: `Ronda ${roundNumber}`,
+          autoPair: true,
+        }),
       });
-      if (res.ok) fetchData();
+      if (res.ok) {
+        fetchData();
+      } else {
+        const body = await res.json().catch(() => null);
+        alert(body?.error || "Error al crear la ronda");
+      }
     } catch {
       alert("Error de conexión");
     }
   };
 
   const generatePairings = async (roundId: string) => {
-    // Simple Swiss pairing: sort by score, pair adjacent
-    const activeParticipants = participants.filter(p => !p.dropped).sort((a, b) => b.seed - a.seed);
-    
-    const pairings = [];
-    for (let i = 0; i < activeParticipants.length; i += 2) {
-      if (i + 1 < activeParticipants.length) {
-        pairings.push([activeParticipants[i], activeParticipants[i + 1]]);
-      } else {
-        // Bye
-        pairings.push([activeParticipants[i], null]);
-      }
-    }
-
-    let tableNum = 1;
-    for (const [p1, p2] of pairings) {
-      if (!p1) continue;
-      await fetch(`/api/tournaments/${tournamentId}/matches`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          roundId,
-          player1Id: p1.id,
-          player2Id: p2?.id || null,
-          tableNumber: tableNum++,
-        }),
-      });
-    }
-    fetchData();
-  };
-
-  const updateMatchScore = async (matchId: string, p1Score: number, p2Score: number) => {
+    // Para rondas existentes aún sin combates: el servidor genera las parejas.
     try {
-      await fetch(`/api/tournaments/${tournamentId}/matches/${matchId}`, {
+      const res = await fetch(`/api/tournaments/${tournamentId}/rounds/${roundId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ player1Score: p1Score, player2Score: p2Score }),
+        body: JSON.stringify({ generatePairings: true }),
       });
-      fetchData();
+      if (res.ok) {
+        fetchData();
+      } else {
+        const body = await res.json().catch(() => null);
+        alert(body?.error || "Error al generar las parejas");
+      }
     } catch {
       alert("Error de conexión");
+    }
+  };
+
+  // Los marcadores se escriben en local; solo se guardan al confirmar.
+  const getDraft = (match: Match) => {
+    const saved = drafts[match.id];
+    if (saved) return saved;
+    const finished =
+      match.status === "COMPLETED" || match.status === "DRAW" || match.status === "BYE";
+    return {
+      p1: finished ? String(match.player1Score) : "",
+      p2: finished ? String(match.player2Score) : "",
+    };
+  };
+
+  const setDraft = (match: Match, side: "p1" | "p2", value: string) => {
+    if (value !== "" && !/^[0-3]$/.test(value)) return;
+    const current = getDraft(match);
+    setDrafts((prev) => ({ ...prev, [match.id]: { ...current, [side]: value } }));
+  };
+
+  const confirmResult = async (match: Match) => {
+    const draft = getDraft(match);
+    if (draft.p1 === "" || draft.p2 === "") return;
+
+    setSavingMatchId(match.id);
+    try {
+      const res = await fetch(`/api/tournaments/${tournamentId}/matches/${match.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          player1Score: Number(draft.p1),
+          player2Score: Number(draft.p2),
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        alert(body?.error || "Error al guardar el resultado");
+        return;
+      }
+      setDrafts((prev) => {
+        const next = { ...prev };
+        delete next[match.id];
+        return next;
+      });
+      await fetchData();
+    } catch {
+      alert("Error de conexión");
+    } finally {
+      setSavingMatchId(null);
     }
   };
 
@@ -245,7 +294,7 @@ export default function TournamentBracketPage({
 
     rounds.forEach(round => {
       round.matches.forEach(match => {
-        if (match.status === "COMPLETED" && match.player1 && match.player2) {
+        if ((match.status === "COMPLETED" || match.status === "DRAW") && match.player1 && match.player2) {
           const p1Stats = scores.get(match.player1.id)!;
           const p2Stats = scores.get(match.player2.id)!;
           
@@ -424,7 +473,13 @@ export default function TournamentBracketPage({
       {activeTab === "rounds" && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <h2 className="font-pixel text-lg text-digimon-green">GESTIÓN DE RONDAS</h2>
+            <div>
+              <h2 className="font-pixel text-lg text-digimon-green">GESTIÓN DE RONDAS</h2>
+              <p className="font-mono-pixel text-xs text-pixel-gray">
+                «NUEVA RONDA» empareja automáticamente a todos los jugadores activos
+                (bye si hay número impar) y la deja lista para jugar.
+              </p>
+            </div>
             {canManage && (
               <button onClick={() => generateRound(rounds.length + 1)} className="pixel-button text-xs">
                 + NUEVA RONDA
@@ -458,9 +513,11 @@ export default function TournamentBracketPage({
                             <button onClick={() => startRound(round.id)} className="pixel-button text-xs">
                               INICIAR
                             </button>
-                            <button onClick={() => generatePairings(round.id)} className="pixel-button-secondary text-xs">
-                              GENERAR PAREJAS
-                            </button>
+                            {round.matches.length === 0 && (
+                              <button onClick={() => generatePairings(round.id)} className="pixel-button-secondary text-xs">
+                                GENERAR PAREJAS
+                              </button>
+                            )}
                           </>
                         )}
                         {round.status === "IN_PROGRESS" && (
@@ -489,35 +546,42 @@ export default function TournamentBracketPage({
                                 </p>
                                 <p className="font-mono-pixel text-xs text-pixel-gray">{match.player1?.deck?.name || "Sin mazo"}</p>
                               </div>
-                              <div className="flex items-center gap-2">
-                                {canManage ? (
-                                  <>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max="3"
-                                      value={match.player1Score}
-                                      onChange={(e) => updateMatchScore(match.id, Number(e.target.value), match.player2Score)}
-                                      className="pixel-input w-16 text-center font-pixel text-lg"
-                                    />
-                                    <span className="font-pixel text-lg text-digimon-yellow">-</span>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max="3"
-                                      value={match.player2Score}
-                                      onChange={(e) => updateMatchScore(match.id, match.player1Score, Number(e.target.value))}
-                                      className="pixel-input w-16 text-center font-pixel text-lg"
-                                    />
-                                  </>
-                                ) : (
-                                  <>
-                                    <span className="font-pixel text-lg text-digimon-yellow w-16 text-center">{match.player1Score}</span>
-                                    <span className="font-pixel text-lg text-digimon-yellow">-</span>
-                                    <span className="font-pixel text-lg text-digimon-yellow w-16 text-center">{match.player2Score}</span>
-                                  </>
-                                )}
-                              </div>
+                              {!match.player2 ? (
+                                // Bye: no se juega ni se introduce resultado.
+                                <span className="font-pixel text-sm text-digimon-yellow px-3">
+                                  ⭐ BYE (3 PTS)
+                                </span>
+                              ) : canManage ? (
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="3"
+                                    value={getDraft(match).p1}
+                                    onChange={(e) => setDraft(match, "p1", e.target.value)}
+                                    placeholder="–"
+                                    disabled={savingMatchId === match.id}
+                                    className="pixel-input w-16 text-center font-pixel text-lg"
+                                  />
+                                  <span className="font-pixel text-lg text-digimon-yellow">-</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="3"
+                                    value={getDraft(match).p2}
+                                    onChange={(e) => setDraft(match, "p2", e.target.value)}
+                                    placeholder="–"
+                                    disabled={savingMatchId === match.id}
+                                    className="pixel-input w-16 text-center font-pixel text-lg"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <span className="font-pixel text-lg text-digimon-yellow w-16 text-center">{match.player1Score}</span>
+                                  <span className="font-pixel text-lg text-digimon-yellow">-</span>
+                                  <span className="font-pixel text-lg text-digimon-yellow w-16 text-center">{match.player2Score}</span>
+                                </div>
+                              )}
                               <div className="text-left min-w-[150px]">
                                 <p className={`font-pixel text-sm ${match.winner?.id === match.player2?.id ? "text-digimon-yellow" : "text-digimon-green"}`}>
                                   {match.player2?.user.name || "BYE"}
@@ -538,6 +602,19 @@ export default function TournamentBracketPage({
                             )}
                             {match.status === "BYE" && (
                               <span className="font-pixel text-xs text-digimon-yellow">⭐ BYE</span>
+                            )}
+                            {canManage && match.player2 && (
+                              <button
+                                onClick={() => confirmResult(match)}
+                                disabled={
+                                  savingMatchId !== null ||
+                                  getDraft(match).p1 === "" ||
+                                  getDraft(match).p2 === ""
+                                }
+                                className="pixel-button text-xs"
+                              >
+                                {savingMatchId === match.id ? "GUARDANDO..." : "CONFIRMAR"}
+                              </button>
                             )}
                           </div>
                         </div>
