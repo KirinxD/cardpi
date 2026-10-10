@@ -78,7 +78,12 @@ export default async function TournamentDetailPage({
           <h2 className="font-pixel text-lg text-digimon-orange mb-4">RESULTADOS / CLASIFICACIÓN</h2>
           {tournament.results.length === 0 ? (
             <p className="font-mono-pixel text-pixel-gray text-center py-8">
-              Sin resultados registrados aún
+              Sin resultados todavía. Se generan automáticamente al finalizar la
+              última ronda en el{" "}
+              <Link href={`/tournaments/${tournament.id}/bracket`} className="text-digimon-green underline">
+                BRACKET
+              </Link>
+              .
             </p>
           ) : (
             <div className="overflow-x-auto">

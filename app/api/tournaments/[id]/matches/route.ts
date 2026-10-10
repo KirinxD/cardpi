@@ -15,6 +15,28 @@ function getZodErrorMessage(error: z.ZodError): string {
   return error.issues[0]?.message || "Error de validación";
 }
 
+const matchInclude = {
+  round: { select: { id: true, number: true, name: true } },
+  player1: {
+    include: {
+      user: { select: { id: true, name: true } },
+      deck: { select: { id: true, name: true, userId: true } },
+    },
+  },
+  player2: {
+    include: {
+      user: { select: { id: true, name: true } },
+      deck: { select: { id: true, name: true, userId: true } },
+    },
+  },
+  winner: {
+    include: {
+      user: { select: { id: true, name: true } },
+      deck: { select: { id: true, name: true, userId: true } },
+    },
+  },
+};
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -23,12 +45,7 @@ export async function GET(
 
   const matches = await prisma.tournamentMatch.findMany({
     where: { tournamentId: id },
-    include: {
-      round: { select: { id: true, number: true, name: true } },
-      player1: { include: { user: { select: { id: true, name: true } } } },
-      player2: { include: { user: { select: { id: true, name: true } } } },
-      winner: { include: { user: { select: { id: true, name: true } } } },
-    },
+    include: matchInclude,
     orderBy: [{ round: { number: "asc" } }, { tableNumber: "asc" }],
   });
 
@@ -67,12 +84,7 @@ export async function POST(
         tableNumber: data.tableNumber || null,
         status: "PENDING",
       },
-      include: {
-        round: { select: { id: true, number: true, name: true } },
-        player1: { include: { user: { select: { id: true, name: true } } } },
-        player2: { include: { user: { select: { id: true, name: true } } } },
-        winner: { include: { user: { select: { id: true, name: true } } } },
-      },
+      include: matchInclude,
     });
 
     return NextResponse.json(match);

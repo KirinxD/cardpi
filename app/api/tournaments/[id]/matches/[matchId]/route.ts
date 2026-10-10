@@ -61,9 +61,24 @@ export async function PATCH(
       data: updateData,
       include: {
         round: { select: { id: true, number: true, name: true } },
-        player1: { include: { user: { select: { id: true, name: true } } } },
-        player2: { include: { user: { select: { id: true, name: true } } } },
-        winner: { include: { user: { select: { id: true, name: true } } } },
+        player1: {
+          include: {
+            user: { select: { id: true, name: true } },
+            deck: { select: { id: true, name: true, userId: true } },
+          },
+        },
+        player2: {
+          include: {
+            user: { select: { id: true, name: true } },
+            deck: { select: { id: true, name: true, userId: true } },
+          },
+        },
+        winner: {
+          include: {
+            user: { select: { id: true, name: true } },
+            deck: { select: { id: true, name: true, userId: true } },
+          },
+        },
       },
     });
 

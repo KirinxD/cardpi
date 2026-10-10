@@ -45,11 +45,24 @@ interface Round {
   matches: Match[];
 }
 
+/** Clasificación suiza calculada por el servidor (lib/standings.ts). */
+interface Standing {
+  participantId: string;
+  name: string;
+  deckName: string | null;
+  dropped: boolean;
+  points: number;
+  wins: number;
+  draws: number;
+  losses: number;
+}
+
 interface LoadedData {
   participants: Participant[];
   rounds: Round[];
   users: User[];
   decks: Deck[];
+  standings: Standing[];
 }
 
 export default function TournamentBracketPage({
@@ -61,6 +74,7 @@ export default function TournamentBracketPage({
   const [rounds, setRounds] = useState<Round[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [decks, setDecks] = useState<Deck[]>([]);
+  const [standings, setStandings] = useState<Standing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"participants" | "bracket" | "rounds">("participants");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -76,17 +90,19 @@ export default function TournamentBracketPage({
   const canManage = isAdmin(session);
 
   const loadData = useCallback(async (): Promise<LoadedData> => {
-    const [participantsRes, roundsRes, usersRes, decksRes] = await Promise.all([
+    const [participantsRes, roundsRes, usersRes, decksRes, standingsRes] = await Promise.all([
       fetch(`/api/tournaments/${tournamentId}/participants`),
       fetch(`/api/tournaments/${tournamentId}/rounds`),
       fetch("/api/users"),
       fetch(`/api/decks?userId=all`),
+      fetch(`/api/tournaments/${tournamentId}/standings`),
     ]);
     return {
       participants: (await participantsRes.json()) as Participant[],
       rounds: (await roundsRes.json()) as Round[],
       users: (await usersRes.json()) as User[],
       decks: (await decksRes.json()) as Deck[],
+      standings: (await standingsRes.json()) as Standing[],
     };
   }, [tournamentId]);
 
@@ -95,6 +111,7 @@ export default function TournamentBracketPage({
     setRounds(data.rounds);
     setUsers(data.users);
     setDecks(data.decks);
+    setStandings(data.standings);
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -209,16 +226,9 @@ export default function TournamentBracketPage({
   };
 
   // Los marcadores se escriben en local; solo se guardan al confirmar.
-  const getDraft = (match: Match) => {
-    const saved = drafts[match.id];
-    if (saved) return saved;
-    const finished =
-      match.status === "COMPLETED" || match.status === "DRAW" || match.status === "BYE";
-    return {
-      p1: finished ? String(match.player1Score) : "",
-      p2: finished ? String(match.player2Score) : "",
-    };
-  };
+  // Sin confirmar quedan en 0-0; el botón CONFIRMAR está siempre disponible.
+  const getDraft = (match: Match) =>
+    drafts[match.id] ?? { p1: String(match.player1Score), p2: String(match.player2Score) };
 
   const setDraft = (match: Match, side: "p1" | "p2", value: string) => {
     if (value !== "" && !/^[0-3]$/.test(value)) return;
@@ -228,7 +238,6 @@ export default function TournamentBracketPage({
 
   const confirmResult = async (match: Match) => {
     const draft = getDraft(match);
-    if (draft.p1 === "" || draft.p2 === "") return;
 
     setSavingMatchId(match.id);
     try {
@@ -260,12 +269,17 @@ export default function TournamentBracketPage({
 
   const startRound = async (roundId: string) => {
     try {
-      await fetch(`/api/tournaments/${tournamentId}/rounds/${roundId}`, {
+      const res = await fetch(`/api/tournaments/${tournamentId}/rounds/${roundId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "IN_PROGRESS", startedAt: new Date().toISOString() }),
       });
-      fetchData();
+      if (res.ok) {
+        fetchData();
+      } else {
+        const body = await res.json().catch(() => null);
+        alert(body?.error || "Error al iniciar la ronda");
+      }
     } catch {
       alert("Error de conexión");
     }
@@ -273,53 +287,24 @@ export default function TournamentBracketPage({
 
   const completeRound = async (roundId: string) => {
     try {
-      await fetch(`/api/tournaments/${tournamentId}/rounds/${roundId}`, {
+      const res = await fetch(`/api/tournaments/${tournamentId}/rounds/${roundId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "COMPLETED", completedAt: new Date().toISOString() }),
       });
-      fetchData();
+      if (res.ok) {
+        const body = await res.json().catch(() => null);
+        fetchData();
+        if (body?.classificationPublished) {
+          alert("Ronda finalizada. Se ha publicado la clasificación final del torneo.");
+        }
+      } else {
+        const body = await res.json().catch(() => null);
+        alert(body?.error || "Error al finalizar la ronda");
+      }
     } catch {
       alert("Error de conexión");
     }
-  };
-
-  const getStandings = () => {
-    // Calculate Swiss standings based on match results
-    const scores = new Map<string, { wins: number; draws: number; losses: number; points: number }>();
-    
-    participants.forEach(p => {
-      scores.set(p.id, { wins: 0, draws: 0, losses: 0, points: 0 });
-    });
-
-    rounds.forEach(round => {
-      round.matches.forEach(match => {
-        if ((match.status === "COMPLETED" || match.status === "DRAW") && match.player1 && match.player2) {
-          const p1Stats = scores.get(match.player1.id)!;
-          const p2Stats = scores.get(match.player2.id)!;
-          
-          if (match.player1Score > match.player2Score) {
-            p1Stats.wins++; p1Stats.points += 3;
-            p2Stats.losses++;
-          } else if (match.player2Score > match.player1Score) {
-            p2Stats.wins++; p2Stats.points += 3;
-            p1Stats.losses++;
-          } else {
-            p1Stats.draws++; p1Stats.points += 1;
-            p2Stats.draws++; p2Stats.points += 1;
-          }
-        } else if (match.status === "BYE" && match.player1) {
-          // Bye counts as 2-0 win
-          const p1Stats = scores.get(match.player1.id)!;
-          p1Stats.wins++; p1Stats.points += 3;
-        }
-      });
-    });
-
-    return participants
-      .filter(p => !p.dropped)
-      .map(p => ({ ...p, ...scores.get(p.id)! }))
-      .sort((a, b) => b.points - a.points || b.wins - a.wins);
   };
 
   if (isLoading) {
@@ -330,7 +315,7 @@ export default function TournamentBracketPage({
     );
   }
 
-  const standings = getStandings();
+  const activeStandings = standings.filter((s) => !s.dropped);
 
   return (
     <div className="space-y-6">
@@ -606,11 +591,7 @@ export default function TournamentBracketPage({
                             {canManage && match.player2 && (
                               <button
                                 onClick={() => confirmResult(match)}
-                                disabled={
-                                  savingMatchId !== null ||
-                                  getDraft(match).p1 === "" ||
-                                  getDraft(match).p2 === ""
-                                }
+                                disabled={savingMatchId !== null}
                                 className="pixel-button text-xs"
                               >
                                 {savingMatchId === match.id ? "GUARDANDO..." : "CONFIRMAR"}
@@ -631,7 +612,13 @@ export default function TournamentBracketPage({
       {/* BRACKET/STANDINGS TAB */}
       {activeTab === "bracket" && (
         <div className="space-y-6">
-          <h2 className="font-pixel text-lg text-digimon-yellow">CLASIFICACIÓN ACTUAL (SUIZO)</h2>
+          <div>
+            <h2 className="font-pixel text-lg text-digimon-yellow">CLASIFICACIÓN ACTUAL (SUIZO)</h2>
+            <p className="font-mono-pixel text-xs text-pixel-gray">
+              Calculada de los combates. Al finalizar la última ronda se publica como
+              clasificación final del torneo.
+            </p>
+          </div>
           <div className="overflow-x-auto">
             <table className="standings-table w-full">
               <thead>
@@ -646,26 +633,26 @@ export default function TournamentBracketPage({
                 </tr>
               </thead>
               <tbody>
-                {standings.map((p, i) => (
-                  <tr key={p.id}>
+                {activeStandings.map((s, i) => (
+                  <tr key={s.participantId}>
                     <td className="font-pixel text-digimon-yellow text-center">{i + 1}º</td>
-                    <td className="font-mono-pixel text-pixel-white">{p.user.name}</td>
-                    <td className="font-pixel text-digimon-green text-center text-lg">{p.points}</td>
-                    <td className="font-mono-pixel text-center text-digimon-green">{p.wins}</td>
-                    <td className="font-mono-pixel text-center text-digimon-yellow">{p.draws}</td>
-                    <td className="font-mono-pixel text-center text-digimon-orange">{p.losses}</td>
-                    <td className="font-mono-pixel text-center text-pixel-gray">{p.deck?.name || "Sin mazo"}</td>
+                    <td className="font-mono-pixel text-pixel-white">{s.name}</td>
+                    <td className="font-pixel text-digimon-green text-center text-lg">{s.points}</td>
+                    <td className="font-mono-pixel text-center text-digimon-green">{s.wins}</td>
+                    <td className="font-mono-pixel text-center text-digimon-yellow">{s.draws}</td>
+                    <td className="font-mono-pixel text-center text-digimon-orange">{s.losses}</td>
+                    <td className="font-mono-pixel text-center text-pixel-gray">{s.deckName || "Sin mazo"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          {standings.length > 0 && (
+          {activeStandings.length > 0 && (
             <div className="pixel-card text-center" style={{ borderColor: "#ffcc00" }}>
-              <p className="font-pixel text-2xl text-digimon-yellow">{standings[0].user.name}</p>
+              <p className="font-pixel text-2xl text-digimon-yellow">{activeStandings[0].name}</p>
               <p className="font-mono-pixel text-pixel-gray mt-1">LÍDER ACTUAL</p>
-              <p className="font-pixel text-xl text-digimon-green mt-2">{standings[0].points} PTS</p>
+              <p className="font-pixel text-xl text-digimon-green mt-2">{activeStandings[0].points} PTS</p>
             </div>
           )}
         </div>

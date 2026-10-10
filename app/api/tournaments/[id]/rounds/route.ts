@@ -20,9 +20,24 @@ function getZodErrorMessage(error: z.ZodError): string {
 const roundInclude = {
   matches: {
     include: {
-      player1: { include: { user: { select: { id: true, name: true } } } },
-      player2: { include: { user: { select: { id: true, name: true } } } },
-      winner: { include: { user: { select: { id: true, name: true } } } },
+      player1: {
+        include: {
+          user: { select: { id: true, name: true } },
+          deck: { select: { id: true, name: true, userId: true } },
+        },
+      },
+      player2: {
+        include: {
+          user: { select: { id: true, name: true } },
+          deck: { select: { id: true, name: true, userId: true } },
+        },
+      },
+      winner: {
+        include: {
+          user: { select: { id: true, name: true } },
+          deck: { select: { id: true, name: true, userId: true } },
+        },
+      },
     },
     orderBy: { tableNumber: "asc" as const },
   },
@@ -36,16 +51,7 @@ export async function GET(
 
   const rounds = await prisma.tournamentRound.findMany({
     where: { tournamentId: id },
-    include: {
-      matches: {
-        include: {
-          player1: { include: { user: { select: { id: true, name: true } } } },
-          player2: { include: { user: { select: { id: true, name: true } } } },
-          winner: { include: { user: { select: { id: true, name: true } } } },
-        },
-        orderBy: { tableNumber: "asc" },
-      },
-    },
+    include: roundInclude,
     orderBy: { number: "asc" },
   });
 

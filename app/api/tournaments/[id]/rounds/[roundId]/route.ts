@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { buildRoundMatchRows, matchCreateRows } from "@/lib/pairing";
+import { publishFinalClassification } from "@/lib/standings";
 
 const updateSchema = z.object({
   name: z.string().optional(),
@@ -18,6 +19,27 @@ const updateSchema = z.object({
 function getZodErrorMessage(error: z.ZodError): string {
   return error.issues[0]?.message || "Error de validación";
 }
+
+const matchInclude = {
+  player1: {
+    include: {
+      user: { select: { id: true, name: true } },
+      deck: { select: { id: true, name: true, userId: true } },
+    },
+  },
+  player2: {
+    include: {
+      user: { select: { id: true, name: true } },
+      deck: { select: { id: true, name: true, userId: true } },
+    },
+  },
+  winner: {
+    include: {
+      user: { select: { id: true, name: true } },
+      deck: { select: { id: true, name: true, userId: true } },
+    },
+  },
+};
 
 export async function PATCH(
   req: Request,
@@ -76,17 +98,41 @@ export async function PATCH(
       const full = await prisma.tournamentRound.findUnique({
         where: { id: roundId },
         include: {
-          matches: {
-            include: {
-              player1: { include: { user: { select: { id: true, name: true } } } },
-              player2: { include: { user: { select: { id: true, name: true } } } },
-              winner: { include: { user: { select: { id: true, name: true } } } },
-            },
-            orderBy: { tableNumber: "asc" },
-          },
+          matches: { include: matchInclude, orderBy: { tableNumber: "asc" } },
         },
       });
       return NextResponse.json(full);
+    }
+
+    // Finalizar una ronda: todos sus combates deben tener resultado y, si es
+    // la última del torneo, se publica la clasificación final.
+    let classificationPublished = false;
+    if (data.status === "COMPLETED") {
+      const [round, unfinished] = await Promise.all([
+        prisma.tournamentRound.findUnique({
+          where: { id: roundId },
+          select: { id: true, tournamentId: true, number: true },
+        }),
+        prisma.tournamentMatch.count({
+          where: { roundId, status: { in: ["PENDING", "IN_PROGRESS"] } },
+        }),
+      ]);
+
+      if (!round || round.tournamentId !== id) {
+        return NextResponse.json({ error: "Ronda no encontrada" }, { status: 404 });
+      }
+      if (unfinished > 0) {
+        return NextResponse.json(
+          { error: "Faltan resultados por confirmar en esta ronda" },
+          { status: 400 },
+        );
+      }
+
+      const last = await prisma.tournamentRound.aggregate({
+        where: { tournamentId: id },
+        _max: { number: true },
+      });
+      classificationPublished = round.number === last._max.number;
     }
 
     const updateData: Record<string, unknown> = {};
@@ -99,18 +145,15 @@ export async function PATCH(
       where: { id: roundId },
       data: updateData,
       include: {
-        matches: {
-          include: {
-            player1: { include: { user: { select: { id: true, name: true } } } },
-            player2: { include: { user: { select: { id: true, name: true } } } },
-            winner: { include: { user: { select: { id: true, name: true } } } },
-          },
-          orderBy: { tableNumber: "asc" },
-        },
+        matches: { include: matchInclude, orderBy: { tableNumber: "asc" } },
       },
     });
 
-    return NextResponse.json(round);
+    if (classificationPublished) {
+      await publishFinalClassification(id);
+    }
+
+    return NextResponse.json({ ...round, classificationPublished });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: getZodErrorMessage(error) }, { status: 400 });

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getSwissStandings } from "@/lib/standings";
 
 /** Fila de combate a crear al generar las parejas de una ronda. */
 export interface MatchRow {
@@ -17,22 +18,15 @@ interface PairingPlayer {
 }
 
 /**
- * Emparejamiento suizo sencillo:
- *  1. Ordena por puntos (desc), victorias (desc) y seed (asc).
- *  2. Si el número de jugadores es impar, el peor clasificado sin bye previo
+ * Emparejamiento suizo sencillo (jugadores ya ordenados por la tabla):
+ *  1. Si el número de jugadores es impar, el peor clasificado sin bye previo
  *     recibe el bye de esta ronda (última mesa).
- *  3. Emparejamiento goloso: cada jugador se lleva al primer rival disponible
+ *  2. Emparejamiento goloso: cada jugador se lleva al primer rival disponible
  *     con el que no haya jugado todavía. Si solo quedan rivales repetidos, se
  *     acepta la repetición para no dejar a nadie sin mesa.
  */
 export function buildPairings(players: PairingPlayer[]): MatchRow[] {
-  const queue = [...players].sort(
-    (a, b) =>
-      b.points - a.points ||
-      b.wins - a.wins ||
-      (a.seed ?? Number.MAX_SAFE_INTEGER) - (b.seed ?? Number.MAX_SAFE_INTEGER),
-  );
-
+  const queue = [...players];
   const rows: MatchRow[] = [];
 
   // Bye para el peor clasificado que aún no haya tenido uno.
@@ -65,79 +59,57 @@ export function buildPairings(players: PairingPlayer[]): MatchRow[] {
 }
 
 /**
- * Calcula las mesas de la siguiente ronda de un torneo a partir de sus
- * participantes activos y de sus combates previos (clasificación suiza,
- * byes ya repartidos y enfrentamientos anteriores).
+ * Calcula las mesas de la siguiente ronda de un torneo a partir de su
+ * clasificación suiza actual (ver lib/standings.ts) y del historial de
+ * enfrentamientos, para no repetir rivales.
  *
  * Devuelve `null` si el torneo no tiene participantes activos.
  */
 export async function buildRoundMatchRows(
   tournamentId: string,
 ): Promise<MatchRow[] | null> {
-  const [participants, matches] = await Promise.all([
-    prisma.tournamentParticipant.findMany({
-      where: { tournamentId, dropped: false },
-      select: { id: true, seed: true },
-    }),
+  const [standings, matches] = await Promise.all([
+    getSwissStandings(tournamentId),
     prisma.tournamentMatch.findMany({
       where: { tournamentId },
-      select: {
-        player1Id: true,
-        player2Id: true,
-        status: true,
-        player1Score: true,
-        player2Score: true,
-      },
+      select: { player1Id: true, player2Id: true },
     }),
   ]);
 
-  if (participants.length === 0) return null;
+  const active = standings.filter((r) => !r.dropped);
+  if (active.length === 0) return null;
 
-  const stats = new Map<string, PairingPlayer>();
-  for (const p of participants) {
-    stats.set(p.id, {
-      id: p.id,
-      seed: p.seed,
-      points: 0,
-      wins: 0,
-      hadBye: false,
-      faced: new Set(),
-    });
-  }
-
+  // Enfrentamientos previos (cualquier combate ya creado cuenta como visto).
+  const faced = new Map<string, Set<string>>();
+  const facedSet = (id: string) => {
+    let set = faced.get(id);
+    if (!set) {
+      set = new Set();
+      faced.set(id, set);
+    }
+    return set;
+  };
   for (const m of matches) {
-    const s1 = m.player1Id ? stats.get(m.player1Id) : undefined;
-    const s2 = m.player2Id ? stats.get(m.player2Id) : undefined;
-
-    // Cualquier combate previo cuenta como "ya se han enfrentado"
-    // (también los aún no jugados, para no repetirlos al emparejar).
-    if (s1 && s2) {
-      s1.faced.add(s2.id);
-      s2.faced.add(s1.id);
-    }
-
-    if (m.status === "BYE" && s1) {
-      s1.hadBye = true;
-      s1.wins += 1;
-      s1.points += 3;
-    } else if ((m.status === "COMPLETED" || m.status === "DRAW") && s1 && s2) {
-      if (m.player1Score > m.player2Score) {
-        s1.wins += 1;
-        s1.points += 3;
-      } else if (m.player2Score > m.player1Score) {
-        s2.wins += 1;
-        s2.points += 3;
-      } else {
-        s1.points += 1;
-        s2.points += 1;
-      }
+    if (m.player1Id && m.player2Id) {
+      facedSet(m.player1Id).add(m.player2Id);
+      facedSet(m.player2Id).add(m.player1Id);
     }
   }
 
-  return buildPairings([...stats.values()]);
+  // `standings` ya viene ordenada por puntos, victorias y seed.
+  return buildPairings(
+    active.map((r) => ({
+      id: r.participantId,
+      seed: r.seed,
+      points: r.points,
+      wins: r.wins,
+      hadBye: r.hadBye,
+      faced: faced.get(r.participantId) ?? new Set(),
+    })),
+  );
 }
 
-/** Crea los combates de una ronda ya creada (filas de `buildPairings`). */
+/** Filas Prisma para crear los combates de una ronda ya creada. */
 export function matchCreateRows(
   tournamentId: string,
   roundId: string,
