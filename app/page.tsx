@@ -32,30 +32,6 @@ export default function Home() {
         <nav className="flex items-center gap-4">
           {session ? (
             <>
-              <Link
-                href="/decks"
-                className="font-pixel text-xs text-pixel-white hover:text-digimon-green transition-colors"
-              >
-                MAZOS
-              </Link>
-              <Link
-                href="/tournaments"
-                className="font-pixel text-xs text-pixel-white hover:text-digimon-green transition-colors"
-              >
-                TORNEOS
-              </Link>
-              <Link
-                href="/standings"
-                className="font-pixel text-xs text-pixel-white hover:text-digimon-green transition-colors"
-              >
-                CLASIFICACIÓN
-              </Link>
-              <Link
-                href="/posts"
-                className="font-pixel text-xs text-pixel-white hover:text-digimon-green transition-colors"
-              >
-                BLOG
-              </Link>
               {isAdmin(session) && (
                 <Link
                   href="/admin"
